@@ -1,0 +1,20 @@
+apiVersion: autoscaling.containers.ai/v1alpha1
+kind: AlamedaScaler
+metadata:
+  name: nginx-scaler
+  namespace: mynginxproj
+spec:
+  enableExecution: true
+  nginx:
+    exporterNamespace: openshift-ingress
+    maxReplicas: 40
+    minReplicas: 1
+    replicaMarginPercentage: 20
+    selector:
+      matchLabels:
+        app: nginx
+    service: nginx-service
+  policy: stable
+  scalingTool:
+    type: hpa
+  type: nginx

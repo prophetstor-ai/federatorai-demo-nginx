@@ -1,0 +1,10 @@
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata: {name: tomcathost, namespace: tomcathost}
+spec:
+  maxReplicas: 100
+  metrics:
+  - resource: {name: memory, targetAverageUtilization: 80}
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef: {apiVersion: extensions/v1beta1, kind: Deployment, name: tomcathost}

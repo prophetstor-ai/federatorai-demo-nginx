@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: nginx
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - nodePort: 31380
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}
