@@ -154,7 +154,7 @@ while :; do
     apply_nginx_deployment
 done
 
-oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup sh -x ./run.sh start -k \${KUBECONFIG} -z ${parameter} > run.log 2>&1 &"
+oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup sh -x ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
 
 ## Wait until the test in pod finished running
 while :; do
