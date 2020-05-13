@@ -6,6 +6,9 @@ show_usage()
 
     Usage:
         Requirement:
+            [-k OpenShift kubeconfig file] # e.g. -k .kubeconfig
+              File .kubeconfig can be created by using the following command.
+                (export KUBECONFIG=.kubeconfig; oc login [URL])
             [-i Initial nginx replica number] # e.g. -i 10
         Optional options:
             [-c Native HPA cpu percent] # For Native HPA (CPU) test, run with -o option. e.g. -o 40 -c 20
@@ -250,12 +253,13 @@ apply_alamedascaler()
 
 sleep_interval_func()
 {
+    echo "Sleeping ${avoid_metrics_interference_sleep} seconds to avoid interference..."
     # Always restart recommender before testing
     restart_recommender_pod
 
     # Sleep 10 minutes to avoid metrics interfere
     if [ "$previous_test" = "y" ]; then
-        sleep $avoid_metrics_interferece_sleep
+        sleep $avoid_metrics_interference_sleep
     fi
 }
 
@@ -521,6 +525,41 @@ check_up_env()
     get_variables_from_define_file
 }   
 
+do_install()
+{
+    get_variables_from_define_file
+    install_nginx
+    return $?
+}
+
+add_nginx_url_host_aliases()
+{
+    _nginx_route=`oc get route -n $nginx_namespace|grep -v NAME|head -1|awk '{print $2}'`
+    if [ "$_nginx_route" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to get nginx route.\n$(tput sgr 0)"
+        exit
+    fi
+    oc -n federatorai-demo-manager patch deployments nginx-demo-manager --patch \
+    '{
+      "spec": {
+        "template": {
+          "spec": {
+            "hostAliases": [
+              {
+                "hostnames": [
+                  "'${_nginx_route}'"
+                ],
+                "ip": "'${NGINX_PUBLIC_IP}'"
+              }
+            ]
+          }
+        }
+      }
+    }'
+
+
+}
+
 ##
 ## Main
 ##
@@ -529,19 +568,19 @@ if [ "$#" -eq "0" ]; then
     exit
 fi
 
-[ "$max_wait_pods_ready_time" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
-[ "$avoid_metrics_interferece_sleep" = "" ] && avoid_metrics_interferece_sleep=600  # maximum wait time for pods become ready
+if [ "$1" = "install" ]; then
+    do_install
+    exit $?
+fi
 
-while getopts "hzi:f:n:o:c:" o; do
+[ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
+[ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=600  # maximum wait time for pods become ready
+
+while getopts "hi:f:n:o:c:k:" o; do
     case "${o}" in
-        # u)
-        #     username_specified="y"
-        #     username=${OPTARG}
-        #     ;;
-        # p)
-        #     password_specified="y"
-        #     password=${OPTARG}
-        #     ;;
+        k)
+            kubeconfig="${OPTARG}"
+            ;;
         i)
             initial_nginx_number_specified="y"
             initial_nginx_number=${OPTARG}
@@ -562,15 +601,12 @@ while getopts "hzi:f:n:o:c:" o; do
             cpu_percent_specified="y"
             cpu_percent=${OPTARG}
             ;;
-        z)
-            prepare_env_specified="y"
-            ;;
         h)
             show_usage
             exit
             ;;
         *)
-            echo "Warning! wrong paramter."
+            echo "Error! Invalid parameter."
             show_usage
             ;;
     esac
@@ -578,17 +614,17 @@ done
 
 ## Global variables
 file_folder="./test_result"
-strimzi_installed_ns="myproject"
 alamedascaler_file="config/nginx_alamedascaler.yaml"
-session_id="`date +%s`"
+[ "${session_id}" = "" ] && session_id="`date +%s`"
+current_location=`pwd`
 
-# if [ "$username_specified" != "y" ]; then
-#     echo -e "\n$(tput setaf 1)Error! Need to use \"-u\" to specify openshift admin account name.$(tput sgr 0)" && show_usage
-# fi
-
-# if [ "$password_specified" != "y" ]; then
-#     echo -e "\n$(tput setaf 1)Error! Need to use \"-p\" to specify openshift admin account password   .$(tput sgr 0)" && show_usage
-# fi
+if [ "${kubeconfig}" = "" ]; then
+    echo -e "\n$(tput setaf 1)Error! Need to use \"-k\" to specify openshift kubeconfig file.$(tput sgr 0)"
+    echo -e "$(tput setaf 1)  You can run the following command to generate a kubeconfig file.$(tput sgr 0)"
+    echo -e "$(tput setaf 1)   (export KUBECONFIG=.kubeconfig; oc login [URL])$(tput sgr 0)"
+    show_usage
+fi
+export KUBECONFIG=${kubeconfig}
 
 if [ "$native_cpu_test" = "y" ]; then
     if [ "$cpu_percent_specified" != "y" ] || [ "$cpu_percent" = "" ]; then
@@ -604,14 +640,26 @@ fi
 
 # Check if kubectl connect to server.
 result="`echo ""|kubectl cluster-info 2>/dev/null`"
-if [ "$?" != "0" ];then
+if [ "$?" != "0" ]; then
     echo -e "\n$(tput setaf 1)Error! Please login into OpenShift cluster first.$(tput sgr 0)"
     exit
 fi
 current_server="`echo $result|sed 's/.*at //'|awk '{print $1}'`"
 echo "You are connecting to cluster: $current_server"
 
-# Check if install.sh has been executed.
+install_namespace="`kubectl get pods --all-namespaces |grep "alameda-ai-"|awk '{print $1}'|head -1`"
+
+if [ "$install_namespace" = "" ];then
+    echo -e "\n$(tput setaf 1)Error! Please install Federatorai before running this script.$(tput sgr 0)"
+    exit 3
+fi
+
+alamedaservice_name="`kubectl get alamedaservice -n $install_namespace -o jsonpath='{range .items[*]}{.metadata.name}'`"
+if [ "$alamedaservice_name" = "" ]; then
+    echo -e "\n$(tput setaf 1)Error! Failed to get alamedaservice name.$(tput sgr 0)"
+    exit 8
+fi
+
 if [ ! -f "requirements.done" ]; then
     default="n"
     read -r -p "$(tput setaf 2)It seems install.sh has not been executed. Do you want to continue? [default: n]: $(tput sgr 0)" continue_anyway </dev/tty
@@ -631,29 +679,12 @@ echo "Checking environment..."
 check_up_env
 check_python_command
 
-install_namespace="`kubectl get pods --all-namespaces |grep "alameda-ai-"|awk '{print $1}'|head -1`"
-
-if [ "$install_namespace" = "" ];then
-    echo -e "\n$(tput setaf 1)Error! Please install Federatorai before running this script.$(tput sgr 0)"
-    exit 3
-fi
-
-alamedaservice_name="`kubectl get alamedaservice -n $install_namespace -o jsonpath='{range .items[*]}{.metadata.name}'`"
-if [ "$alamedaservice_name" = "" ]; then
-    echo -e "\n$(tput setaf 1)Error! Failed to get alamedaservice name.$(tput sgr 0)"
-    exit 8
-fi
-
-# Enable NFINX feature
+# Enable NGINX feature
 patch_alamedaservice_for_nginx
 get_alamedaservice_version
 
-mkdir -p $file_folder
-current_location=`pwd`
+install_nginx
 
-if [ "$prepare_env_specified" = "y" ]; then
-    install_nginx
-fi
 
 check_nginx_env
 modify_env_settings_in_define
@@ -661,6 +692,11 @@ apply_alamedascaler "false"
 
 previous_test="n"
 
+cd ${current_location}
+mkdir -pv $file_folder
 nonhpa_test_func
 federatorai_hpa_test_func
 native_hpa_cpu_test_func
+
+echo "Success in running all tests with session id ${session_id}."
+exit 0
