@@ -371,6 +371,15 @@ collect_results()
     mkdir -p $file_folder/$target_folder/recommender
     mkdir -p $file_folder/$target_folder/prediction/log
     mkdir -p $file_folder/$target_folder/prediction/model
+    mkdir -p $file_folder/$target_folder/configmap
+    mkdir -p $file_folder/$target_folder/alamedascaler
+    mkdir -p $file_folder/$target_folder/nginx_deployment
+
+    kubectl get configmap federatorai-agent-app-config -n $install_namespace -o yaml > $file_folder/$target_folder/configmap/federatorai-agent-app-config
+    kubectl get configmap alameda-recommender-config -n $install_namespace -o yaml > $file_folder/$target_folder/configmap/alameda-recommender-config
+    
+    kubectl get alamedascaler -n $nginx_namespace -o yaml > $file_folder/$target_folder/alamedascaler/alamedascaler_output.yaml
+    kubectl get deploy -n $nginx_namespace -o yaml > $file_folder/$target_folder/nginx_deployment/nginx_output.yaml
 
     recommender_pod_name=`kubectl get pods -n $install_namespace -o name |grep "alameda-recommender-"|cut -d '/' -f2`
     ai_pod_name=`kubectl get pods -n $install_namespace -o name |grep "alameda-ai-"|grep -v "alameda-ai-dispatcher"|cut -d '/' -f2`
