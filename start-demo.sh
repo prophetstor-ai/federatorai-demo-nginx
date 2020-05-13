@@ -81,6 +81,36 @@ apply_nginx_deployment()
     return 0
 }
 
+
+add_nginx_url_host_aliases()
+{
+    _nginx_route=$1
+    _nginx_public_ip=$2
+    echo "Adding host aliases ${_nginx_route}:${_nginx_public_ip} into nginx-demo-manager deployment..."
+    oc -n federatorai-demo-manager patch deployments nginx-demo-manager --patch \
+    '{
+      "spec": {
+        "template": {
+          "spec": {
+            "hostAliases": [
+              {
+                "hostnames": [
+                  "'${_nginx_route}'"
+                ],
+                "ip": "'${_nginx_public_ip}'"
+              }
+            ]
+          }
+        }
+      }
+    }'
+    if [ "$?" != "0" ]; then
+        echo "Failed in applying hostAliases patch."
+        exit 1
+    fi
+    return 0
+}
+
 ##
 ## Main
 ##
@@ -154,6 +184,36 @@ while :; do
     apply_nginx_deployment
 done
 
+## Check if the nginx_route accessible, master may not able to perform dns resolver properly
+nginx_route=`oc get route -n ${NGINX_NAMESPACE} | grep -v NAME | head -1 | awk '{print $2}'`
+msg="`oc -n federatorai-demo-manager exec ${manager_pod} -- curl --retry-max-time 5 -s -v ${nginx_route} 2>&1 | grep 'Could not resolve host'`"
+if [ "${msg}" != "" ]; then
+    # example msg "nginx-service-nginx.apps.ocp4.172-31-8-49.nip.io has address 172.31.8.49"
+    nginx_public_ip="`host ${nginx_route} | grep 'has address' | awk '{print $NF}'`"
+    ## Add host_aliases to manager deployment
+    if [ "${nginx_public_ip}" = "" ]; then
+        echo -e "\nError! Failed in getting nginx route.\n"
+        exit 1
+    fi
+    add_nginx_url_host_aliases ${nginx_route} ${nginx_public_ip}
+    ## Wait until new demo-manager pod created
+    while :; do
+        manager_pod="`oc -n federatorai-demo-manager get pods | grep 'Running' | grep nginx-demo-manager | awk '{print $1}'`"
+        if [ "${manager_pod}" != "" ]; then
+            oc -n federatorai-demo-manager get pods -o yaml | grep "nginx-route-federatorai-demo-nginx.apps.ocp4.172-31-8-221.nip.io"
+            ## Wait until the new pod contain spec.hostAliases.hostnames: ${nginx_route}
+            if [ "`oc -n federatorai-demo-manager get pod ${manager_pod} -o yaml | grep \"${nginx_route}\"`" != "" ]; then
+                export manager_pod
+                break
+            fi
+        fi
+        echo "Waiting the manager pod restarting..."
+        sleep 30
+    done
+fi
+
+## Start background running run.sh inside demo-manager pod
+oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup sh -x ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
 
 ## Wait until the test in pod finished running
