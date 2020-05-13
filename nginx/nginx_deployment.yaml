@@ -27,5 +27,5 @@ spec:
             memory: "0"
         env:
         - name: NGINX_SERVICE_DELAY_MS
-          value: "50"
+          value: "1"
  

@@ -267,6 +267,7 @@ nonhpa_test_func()
 {
     if [ "$nonhpa_test" = "y" ]; then
         sleep_interval_func
+        scale_nginx_deployment
         previous_test="y"
         start=`date +%s`
         run_nonhpa_hpa_test
@@ -280,6 +281,7 @@ native_hpa_cpu_test_func()
 {
     if [ "$native_cpu_test" = "y" ]; then
         sleep_interval_func
+        scale_nginx_deployment
         previous_test="y"
         start=`date +%s`
         run_native_k8s_hpa_cpu_test
@@ -293,6 +295,7 @@ federatorai_hpa_test_func()
 {
     if [ "$federatorai_test" = "y" ]; then
         sleep_interval_func
+        scale_nginx_deployment
         previous_test="y"
         start=`date +%s`
         run_federatorai_hpa_test
@@ -380,6 +383,16 @@ collect_results()
 
 }
 
+scale_nginx_deployment()
+{
+    kubectl scale deploy $nginx_deployment_name -n $nginx_namespace --replicas=$initial_nginx_number
+    if [ "$?" != "0" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to scale nginx deployment $nginx_deployment_name in namespace $nginx_namespace $(tput sgr 0)"
+        exit 1
+    fi
+    wait_until_pods_ready $max_wait_pods_ready_time 30 $nginx_namespace $initial_nginx_number
+}
+
 run_federatorai_hpa_test()
 {
     # Federator.ai test
@@ -409,6 +422,9 @@ run_federatorai_hpa_test()
     # echo -e "$(tput setaf 6)Average Consumer Group Lag is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_lag\"$(tput sgr 0)"
     # echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$federatorai_test_folder_name $(tput sgr 0)"
+
+    # Turn off execution before next test
+    apply_alamedascaler "false"
 }
 
 run_native_k8s_hpa_cpu_test()
@@ -636,6 +652,10 @@ if [ "$federatorai_test" = "y" ] || [ "$nonhpa_test" = "y" ] || [ "$native_cpu_t
     if [ "$initial_nginx_number_specified" != "y" ]; then
         echo -e "\n$(tput setaf 1)Error! Need to use \"-i\" to specify initial nginx replica number.$(tput sgr 0)" && show_usage
     fi
+
+    case $initial_nginx_number in
+        ''|*[!0-9]*) echo -e "\n$(tput setaf 1)Error! Initial nginx replica number must be a number.$(tput sgr 0)" && show_usage;;
+    esac
 fi
 
 # Check if kubectl connect to server.
