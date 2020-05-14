@@ -18,6 +18,15 @@ __EOF__
     exit 1
 }
 
+# TRAP exit
+on_exit()
+{
+    ret=$?
+    [ "${pid_helper}" != "" ] && kill ${pid_helper} 2> /dev/null
+    trap - EXIT # Disable exit handler
+    exit ${ret}
+}
+
 apply_manager_deployment()
 {
     oc apply -f - << __EOF__
@@ -114,6 +123,8 @@ add_nginx_url_host_aliases()
 ##
 ## Main
 ##
+export LANG=C
+trap on_exit EXIT INT # Assign exit handler
 while getopts "hk:p:" o; do
     case "${o}" in
         h)
@@ -214,22 +225,29 @@ fi
 
 ## Start background running run.sh inside demo-manager pod
 oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
-oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup sh -x ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
+#oc -n federatorai-demo-manager exec ${manager_pod} -- tail -f run.log &
+#pid_helper=$!
+oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
 
 ## Wait until the test in pod finished running
 while :; do
-    msg="`oc -n federatorai-demo-manager exec ${manager_pod} -- tail run.log | grep 'Success in running all tests'`"
+    msg="`oc -n federatorai-demo-manager exec ${manager_pod} -- tail run.log | egrep 'Success in running all tests|Failed in running all tests'`"
     [ "${msg}" != "" ] && break
     echo "Waiting the tests completely running..."
     sleep 60
 done
 
+if [ "`echo \"${msg}\" | grep '^Failed'`" ]; then
+    oc -n federatorai-demo-manager exec ${manager_pod} -- tail -20 run.log
+    exit 1
+fi
 echo "Collecting testing result..."
 ## msg example: Success in running all tests with session id 1589278863.
 session_id="`echo ${msg} | tr -d '.' | awk '{print $NF}'`"
 oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\`" | tar xf -
 
 ##
-echo "Testing result saved into test_result directory."
+echo "Testing result saved into the following directory."
+ls -d test_result/*${session_id}/
 exit 0
 
