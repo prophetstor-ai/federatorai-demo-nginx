@@ -439,8 +439,18 @@ run_federatorai_hpa_test()
 
     echo "Collecting statistics..."
     collect_results "$federatorai_test_folder_name" "$federatorai_test_folder_short_name" "$start" "$end"
-    federatorai_avg_time=$avg_time_per_request
-    federatorai_avg_replicas=$replica_result
+
+    if [ "$avg_time_per_request" != "" ]; then
+        federatorai_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
+    else
+        federatorai_avg_time=""
+    fi
+    if [ "$replica_result" != "" ]; then
+        federatorai_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
+    else
+        federatorai_avg_replicas=""
+    fi
+
     echo -e "\n$(tput setaf 6)Federator.ai test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${federatorai_avg_time}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
@@ -473,8 +483,18 @@ run_native_k8s_hpa_cpu_test()
 
     echo "Collecting statistics..."
     collect_results "$native_hpa_test_folder_name" "$native_hpa_test_folder_short_name" "$start" "$end"
-    native_hpa_cpu_test_avg_time=$avg_time_per_request
-    native_hpa_cpu_test_avg_replicas=$replica_result
+
+    if [ "$avg_time_per_request" != "" ]; then
+        native_hpa_cpu_test_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
+    else
+        native_hpa_cpu_test_avg_time=""
+    fi
+    if [ "$replica_result" != "" ]; then
+        native_hpa_cpu_test_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
+    else
+        native_hpa_cpu_test_avg_replicas=""
+    fi
+
     echo -e "\n$(tput setaf 6)Native HPA (CPU) test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${native_hpa_cpu_test_avg_time}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_replicas\"$(tput sgr 0)"
@@ -504,8 +524,18 @@ run_nonhpa_hpa_test()
 
     echo "Collecting statistics..."
     collect_results "$nonhpa_test_folder_name" "$nonhpa_test_folder_short_name" "$start" "$end"
-    nonhpa_avg_time=$avg_time_per_request
-    nonhpa_avg_replicas=$replica_result
+
+    if [ "$avg_time_per_request" != "" ]; then
+        nonhpa_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
+    else
+        nonhpa_avg_time=""
+    fi
+    if [ "$replica_result" != "" ]; then
+        nonhpa_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
+    else
+        nonhpa_avg_replicas=""
+    fi
+
     echo -e "\n$(tput setaf 6)NonHPA test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${nonhpa_avg_time}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_replicas\"$(tput sgr 0)"
