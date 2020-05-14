@@ -767,9 +767,10 @@ previous_test="n"
 
 cd ${current_location}
 mkdir -pv $file_folder
+
+native_hpa_cpu_test_func
 nonhpa_test_func
 federatorai_hpa_test_func
-native_hpa_cpu_test_func
 
 display_final_result_if_available
 exit 0
