@@ -38,11 +38,11 @@ metrics_path = "./metrics"
 picture_path = "./picture"
 
 # # traffic - ab info
-traffic_ratio = 500  # aws: 12000; local: 4000
+traffic_ratio = 500
 traffic_path = "./traffic"
 traffic_interval = 1  # generate traffic per 1 minute during 72 minutes
 data_interval = 1  # collect pods' resource utilization
-warm_up = 1
+warm_up = 10
 
 training_interval = 100
 training_scale = 100

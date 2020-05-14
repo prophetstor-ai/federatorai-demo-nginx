@@ -370,16 +370,16 @@ collect_results()
     echo "Test end   - $target_end" >> $file_folder/$target_folder/result_statistics
     echo "It takes $(convertsecs $target_duration) to finish test." >> $file_folder/$target_folder/result_statistics
 
-    # lag_result=`grep "avg. prom. query lag = " $file_folder/$target_folder/result_statistics |awk '{print $NF}'`
-    # if [ "$lag_result" = "" ]; then
-    #     echo -e "\n$(tput setaf 1)Error! Failed to parse average consumer lag result.\n$(tput sgr 0)"
-    #     # continue test without exit
-    # fi
-    # replica_result=`grep "\-\-\- consumer" -A10 $file_folder/$target_folder/result_statistics |grep "avg. replicas"|awk '{print $NF}'`
-    # if [ "$replica_result" = "" ]; then
-    #     echo -e "\n$(tput setaf 1)Error! Failed to parse average replica(s) result.\n$(tput sgr 0)"
-    #     # continue test without exit
-    # fi
+    avg_time_per_request=`grep "avg. time per request" $file_folder/$target_folder/result_statistics |awk '{print $NF}'|cut -d ')' -f1`
+    if [ "$avg_time_per_request" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to parse average time per request result.\n$(tput sgr 0)"
+        # continue test without exit
+    fi
+    replica_result=`grep "avg replica" $file_folder/$target_folder/result_statistics |awk '{print $NF}'`
+    if [ "$replica_result" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to parse average replica(s) result.\n$(tput sgr 0)"
+        # continue test without exit
+    fi
 
     # Get recommender & prediction log
     mkdir -p $file_folder/$target_folder/recommender
@@ -439,11 +439,11 @@ run_federatorai_hpa_test()
 
     echo "Collecting statistics..."
     collect_results "$federatorai_test_folder_name" "$federatorai_test_folder_short_name" "$start" "$end"
-    # federatorai_avg_lag=$lag_result
-    # federatorai_avg_replicas=$replica_result
+    federatorai_avg_time=$avg_time_per_request
+    federatorai_avg_replicas=$replica_result
     echo -e "\n$(tput setaf 6)Federator.ai test is finished.$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Consumer Group Lag is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_lag\"$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${federatorai_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$federatorai_test_folder_name $(tput sgr 0)"
 
     # Turn off execution before next test
@@ -473,11 +473,11 @@ run_native_k8s_hpa_cpu_test()
 
     echo "Collecting statistics..."
     collect_results "$native_hpa_test_folder_name" "$native_hpa_test_folder_short_name" "$start" "$end"
-    # native_hpa_cpu_test_avg_lag=$lag_result
-    # native_hpa_cpu_test_avg_replicas=$replica_result
+    native_hpa_cpu_test_avg_time=$avg_time_per_request
+    native_hpa_cpu_test_avg_replicas=$replica_result
     echo -e "\n$(tput setaf 6)Native HPA (CPU) test is finished.$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Consumer Group Lag is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_lag\"$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_replicas\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${native_hpa_cpu_test_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_replicas\"$(tput sgr 0)"
     echo -e "Result files are under $file_folder/$native_hpa_test_folder_name $(tput sgr 0)"
 }
 
@@ -504,12 +504,39 @@ run_nonhpa_hpa_test()
 
     echo "Collecting statistics..."
     collect_results "$nonhpa_test_folder_name" "$nonhpa_test_folder_short_name" "$start" "$end"
-    # nonhpa_avg_lag=$lag_result
-    # nonhpa_avg_replicas=$replica_result
+    nonhpa_avg_time=$avg_time_per_request
+    nonhpa_avg_replicas=$replica_result
     echo -e "\n$(tput setaf 6)NonHPA test is finished.$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Consumer Group Lag is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_lag\"$(tput sgr 0)"
-    # echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_replicas\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${nonhpa_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$nonhpa_test_folder_name $(tput sgr 0)"
+}
+
+display_final_result_if_available()
+{
+    if [[ $native_cpu_test = "y" && "$federatorai_test" = "y" ]]; then
+        echo ""
+
+        [ "$federatorai_avg_time" = "" ] && federatorai_avg_time="N/A"
+        [ "$federatorai_avg_replicas" = "" ] && federatorai_avg_replicas="N/A"
+        [ "$native_hpa_cpu_test_avg_time" = "" ] && native_hpa_cpu_test_avg_time="N/A"
+        [ "$native_hpa_cpu_test_avg_replicas" = "" ] && native_hpa_cpu_test_avg_replicas="N/A"
+        echo "----------------------------------------------------------------------"
+        echo -e "$(tput setaf 6)                           Benchmark results     $(tput sgr 0)"
+        echo "----------------------------------------------------------------------"
+        printf "%30s%20s%20s\n" "Metrics" "Native HPA(CPU)" "Federator.ai"
+        echo "----------------------------------------------------------------------"
+        printf "%30s%20s%20s\n" "Average Time Per Request" "${native_hpa_cpu_test_avg_time}ms" "${federatorai_avg_time}ms"
+        echo "----------------------------------------------------------------------"
+        printf "%30s%20s%20s\n" "Average Replica(s)" "$native_hpa_cpu_test_avg_replicas" "$federatorai_avg_replicas"
+        echo "----------------------------------------------------------------------"
+
+        if [ "$native_hpa_cpu_test_avg_time" != "N/A" ] && [ "$federatorai_avg_time" != "N/A" ]; then
+            result=`echo "$native_hpa_cpu_test_avg_time $federatorai_avg_time" | awk '{printf "%.2f", (($1-$2)/$1*100)}'`
+            percentage="${result}%"
+            echo -e "Performance improvement by Federator.ai vs. Native HPA(CPU) is $(tput setaf 10)\"$percentage\"$(tput sgr 0)"
+        fi
+    fi
 }
 
 hpa_cleanup()
@@ -744,4 +771,5 @@ nonhpa_test_func
 federatorai_hpa_test_func
 native_hpa_cpu_test_func
 
+display_final_result_if_available
 exit 0
