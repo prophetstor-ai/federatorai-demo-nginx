@@ -23,6 +23,20 @@ __EOF__
     exit 1
 }
 
+# TRAP exit
+on_exit()
+{
+    ret=$?
+    [ "${pid_helper}" != "" ] && kill ${pid_helper} 2> /dev/null
+    if [ "${ret}" = "0" ]; then
+        echo "Success in running all tests with session id ${session_id}."
+    else
+        echo "Failed in running all tests with session id ${session_id}."
+    fi
+    trap - EXIT # Disable exit handler
+    exit ${ret}
+}
+
 check_python_command()
 {
     which python > /dev/null 2>&1
@@ -113,12 +127,12 @@ get_variables_from_define_file()
     prometheus_namespace=`grep "prometheus_namespace" define.py| awk -F '"' '{print $2}'`
     if [ "$prometheus_namespace" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to parse prometheus_namespace setting from define.py\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
     nginx_namespace=`grep "nginx_namespace" define.py| awk -F '"' '{print $2}'`
     if [ "$nginx_namespace" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to parse nginx_namespace setting from define.py\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
     # Number
     #consumer_memory_limit=`grep "consumer_memory_limit" define.py| awk -F '=' '{print $NF}'| egrep -o "[0-9]*"`
@@ -132,14 +146,14 @@ check_nginx_env()
         if [ "$nginx_deployment_name" = "" ]; then
             echo -e "\n$(tput setaf 1)Error! Failed to find Nginx deployment or deploymentconfig.\n$(tput sgr 0)"
             echo -e "$(tput setaf 2)Please install Nginx or check your nginx_namespace setting in define.py$(tput sgr 0)"
-            exit
+            exit 1
         fi
     fi
 
     nginx_svc_name=`oc get svc -n $nginx_namespace|grep -v NAME|head -1|awk '{print $1}'`
     if [ "$nginx_svc_name" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to get nginx svc name.\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
 }
 
@@ -159,14 +173,14 @@ modify_env_settings_in_define()
     prometheus_token=`oc describe $secret_name -n openshift-monitoring|grep "token:"|awk '{print $2}'`
     if [ "$prometheus_token" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to get prometheus token.\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
     sed -i "s|prometheus_token.*|prometheus_token = \"$prometheus_token\"|g" define.py
 
     nginx_route=`oc get route -n $nginx_namespace|grep -v NAME|head -1|awk '{print $2}'`
     if [ "$nginx_route" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to get nginx route.\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
     sed -i "s|app_service_ip.*|app_service_ip = \"$nginx_route\"|g" define.py
 }
@@ -562,7 +576,7 @@ add_nginx_url_host_aliases()
     _nginx_route=`oc get route -n $nginx_namespace|grep -v NAME|head -1|awk '{print $2}'`
     if [ "$_nginx_route" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to get nginx route.\n$(tput sgr 0)"
-        exit
+        exit 1
     fi
     oc -n federatorai-demo-manager patch deployments nginx-demo-manager --patch \
     '{
@@ -588,9 +602,12 @@ add_nginx_url_host_aliases()
 ##
 ## Main
 ##
+export LANG=C
+trap on_exit EXIT INT # Assign exit handler
+
 if [ "$#" -eq "0" ]; then
     show_usage
-    exit
+    exit 1
 fi
 
 if [ "$1" = "install" ]; then
@@ -628,7 +645,7 @@ while getopts "hi:f:n:o:c:k:" o; do
             ;;
         h)
             show_usage
-            exit
+            exit 1
             ;;
         *)
             echo "Error! Invalid parameter."
@@ -671,7 +688,7 @@ fi
 result="`echo ""|kubectl cluster-info 2>/dev/null`"
 if [ "$?" != "0" ]; then
     echo -e "\n$(tput setaf 1)Error! Please login into OpenShift cluster first.$(tput sgr 0)"
-    exit
+    exit 1
 fi
 current_server="`echo $result|sed 's/.*at //'|awk '{print $1}'`"
 echo "You are connecting to cluster: $current_server"
@@ -727,5 +744,4 @@ nonhpa_test_func
 federatorai_hpa_test_func
 native_hpa_cpu_test_func
 
-echo "Success in running all tests with session id ${session_id}."
 exit 0
