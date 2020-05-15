@@ -6,12 +6,18 @@ show_usage()
 {
     cat << __EOF__
 
-    Usage: $0 -k <kubeconfig> -p "<parameters>" 
+    Usage: $0 [-c <define.py>] -k <kubeconfig> -p "<parameters>"
            [-k OpenShift kubeconfig file] # e.g. -k .kubeconfig
            [-p Running parameters] # e.g. -p "-i 2 -c 20 -f 1 -n 1"
     Notes:
         File .kubeconfig can be created by using the following command.
-          (export KUBECONFIG=.kubeconfig; oc login [URL])
+          sh -c "export KUBECONFIG=.kubeconfig; oc login <K8s_LOGIN_URL>"
+          e.g. sh -c "export KUBECONFIG=.kubeconfig; oc login https://api.ocp4.example.com:6443"
+    Examples:
+        - Run a simple test
+          $0 -k .kubeconfig -p "-i 2 -c 20 -f 1 -n 1"
+        - Show options for 'parameters' argument
+          $0 -k .kubeconfig -p "-h"
 __EOF__
 #    Notes:
 #       environment variable NGINX_PUBLIC_IP manually specified IP address of nginx route
@@ -125,8 +131,11 @@ add_nginx_url_host_aliases()
 ##
 export LANG=C
 trap on_exit EXIT INT # Assign exit handler
-while getopts "hk:p:" o; do
+while getopts "c:hk:p:" o; do
     case "${o}" in
+        c)
+            config_define="${OPTARG}"
+            ;;
         h)
             show_usage
             exit 0
@@ -225,6 +234,8 @@ fi
 
 ## Start background running run.sh inside demo-manager pod
 oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
+## Replace remote's define.py if user specified its file
+[ "${config_define}" != "" ] && oc -n federatorai-demo-manager cp ${config_define} ${manager_pod}:define.py
 #oc -n federatorai-demo-manager exec ${manager_pod} -- tail -f run.log &
 #pid_helper=$!
 oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
