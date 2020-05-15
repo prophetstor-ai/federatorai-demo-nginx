@@ -545,26 +545,27 @@ run_nonhpa_hpa_test()
 display_final_result_if_available()
 {
     if [[ $native_cpu_test = "y" && "$federatorai_test" = "y" ]]; then
+        comparison_file="$file_folder/comparison_${session_id}.out"
         echo ""
 
         [ "$federatorai_avg_time" = "" ] && federatorai_avg_time="N/A"
         [ "$federatorai_avg_replicas" = "" ] && federatorai_avg_replicas="N/A"
         [ "$native_hpa_cpu_test_avg_time" = "" ] && native_hpa_cpu_test_avg_time="N/A"
         [ "$native_hpa_cpu_test_avg_replicas" = "" ] && native_hpa_cpu_test_avg_replicas="N/A"
-        echo "----------------------------------------------------------------------"
-        echo -e "$(tput setaf 6)                           Benchmark results     $(tput sgr 0)"
-        echo "----------------------------------------------------------------------"
-        printf "%30s%20s%20s\n" "Metrics" "Native HPA(CPU)" "Federator.ai"
-        echo "----------------------------------------------------------------------"
-        printf "%30s%20s%20s\n" "Average Time Per Request" "${native_hpa_cpu_test_avg_time}ms" "${federatorai_avg_time}ms"
-        echo "----------------------------------------------------------------------"
-        printf "%30s%20s%20s\n" "Average Replica(s)" "$native_hpa_cpu_test_avg_replicas" "$federatorai_avg_replicas"
-        echo "----------------------------------------------------------------------"
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
+        echo -e "$(tput setaf 6)                           Benchmark results     $(tput sgr 0)" | tee -a $comparison_file
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "Metrics" "Native HPA(CPU)" "Federator.ai" | tee -a $comparison_file
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "Average Time Per Request" "${native_hpa_cpu_test_avg_time}ms" "${federatorai_avg_time}ms" | tee -a $comparison_file
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "Average Replica(s)" "$native_hpa_cpu_test_avg_replicas" "$federatorai_avg_replicas" | tee -a $comparison_file
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
 
         if [ "$native_hpa_cpu_test_avg_time" != "N/A" ] && [ "$federatorai_avg_time" != "N/A" ]; then
             result=`echo "$native_hpa_cpu_test_avg_time $federatorai_avg_time" | awk '{printf "%.2f", (($1-$2)/$1*100)}'`
             percentage="${result}%"
-            echo -e "Performance improvement by Federator.ai vs. Native HPA(CPU) is $(tput setaf 10)\"$percentage\"$(tput sgr 0)"
+            echo -e "Performance improvement by Federator.ai vs. Native HPA(CPU) is $(tput setaf 10)\"$percentage\"$(tput sgr 0)" | tee -a $comparison_file
         fi
     fi
 }

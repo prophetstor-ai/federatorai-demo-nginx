@@ -9,7 +9,7 @@ spec:
     exporterNamespace: openshift-ingress
     maxReplicas: 40
     minReplicas: 1
-    replicaMarginPercentage: 20
+    replicaMarginPercentage: 40
     selector:
       matchLabels:
         app: nginx
