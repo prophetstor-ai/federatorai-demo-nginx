@@ -255,7 +255,7 @@ fi
 echo "Collecting testing result..."
 ## msg example: Success in running all tests with session id 1589278863.
 session_id="`echo ${msg} | tr -d '.' | awk '{print $NF}'`"
-oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\`" | tar xf -
+oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\` ./test_result/comparison_${session_id}.out" | tar xf -
 
 ##
 echo "Testing result saved into the following directory."
