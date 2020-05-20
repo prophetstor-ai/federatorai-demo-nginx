@@ -24,6 +24,7 @@ ingress_namespace = "ingress-nginx"
 # # algorithm
 ma_number = 5  # number of time periods of moving average
 replica_margin = 40  # percentage of replica margin
+target_response_time = 200
 
 # # test case
 interactive_mode = False

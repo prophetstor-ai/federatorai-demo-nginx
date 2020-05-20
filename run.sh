@@ -136,6 +136,11 @@ get_variables_from_define_file()
     fi
     # Number
     #consumer_memory_limit=`grep "consumer_memory_limit" define.py| awk -F '=' '{print $NF}'| egrep -o "[0-9]*"`
+    target_response_time=`grep "target_response_time" define.py| awk '{print $NF}'`
+    if [ "$target_response_time" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to parse target_response_time setting from define.py\n$(tput sgr 0)"
+        exit 1
+    fi
 }
 
 check_nginx_env()
@@ -257,6 +262,7 @@ apply_alamedascaler()
     sed -i "s/  namespace:.*/  namespace: $nginx_namespace/g" $alamedascaler_file
     sed -i "s/  enableExecution:.*/  enableExecution: $execution_enabled/g" $alamedascaler_file
     sed -i "s/    service:.*/    service: $nginx_svc_name/g" $alamedascaler_file
+    sed -i "s/    httpResponseTime:.*/    httpResponseTime: $target_response_time/g" $alamedascaler_file
     kubectl apply -f $alamedascaler_file
     if [ "$?" != "0" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to apply $alamedascaler_file $(tput sgr 0)"
