@@ -551,7 +551,8 @@ run_nonhpa_hpa_test()
 display_final_result_if_available()
 {
     if [[ $native_cpu_test = "y" && "$federatorai_test" = "y" ]]; then
-        comparison_file="$file_folder/comparison_${session_id}.out"
+        echo "" > $comparison_file
+        sleep 1
         echo ""
 
         [ "$federatorai_avg_time" = "" ] && federatorai_avg_time="N/A"
@@ -804,6 +805,8 @@ previous_test="n"
 
 cd ${current_location}
 mkdir -pv $file_folder
+comparison_file="$file_folder/comparison_${session_id}.out"
+echo "Need two tests in one session to merit comparison" > $comparison_file
 
 native_hpa_cpu_test_func
 nonhpa_test_func
