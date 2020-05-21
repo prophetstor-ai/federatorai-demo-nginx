@@ -707,6 +707,7 @@ while getopts "hi:r:f:n:o:c:k:" o; do
         r)
             target_response_time_specified="y"
             target_response_time=${OPTARG}
+            ;;
         h)
             show_usage
             exit 1
