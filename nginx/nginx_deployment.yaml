@@ -15,9 +15,9 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: docker.io/albertlin03/nginx:latest
+        image: quay.io/prophetstor/federatorai-demo-nginx-php:stable
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources:
           limits:
             cpu: 200m

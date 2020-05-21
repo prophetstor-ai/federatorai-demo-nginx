@@ -10,9 +10,13 @@ show_usage()
            [-k OpenShift kubeconfig file] # e.g. -k .kubeconfig
            [-p Running parameters] # e.g. -p "-i 2 -c 20 -f 1 -n 1"
     Notes:
-        File .kubeconfig can be created by using the following command.
+        - File .kubeconfig can be created by using the following command.
           sh -c "export KUBECONFIG=.kubeconfig; oc login <K8s_LOGIN_URL>"
           e.g. sh -c "export KUBECONFIG=.kubeconfig; oc login https://api.ocp4.example.com:6443"
+        - Optional define environment variable 'VERSION_TAG' to specify version tag of demo application
+          e.g. export VERSION_TAG='v4.2.801'
+        - Optional define environment variable 'REPO_URL_PREFIX' to specify image repository url prefix
+          e.g. export REPO_URL_PREFIX='repo.prophetservice.com/federatorai'
     Examples:
         - Run a simple test
           $0 -k .kubeconfig -p "-i 2 -c 20 -f 1 -n 1"
@@ -62,7 +66,7 @@ spec:
     spec:
       containers:
       - name: nginx-demo-manager
-        image: quay.io/prophetstor/federatorai-demo-nginx-manager:stable
+        image: ${REPO_URL_PREFIX}/federatorai-demo-nginx-manager:${VERSION_TAG}
         imagePullPolicy: Always
       nodeSelector:
         node-role.kubernetes.io/master: ""
@@ -85,7 +89,7 @@ __EOF__
 apply_nginx_deployment()
 {
     ## preparing testing environment (deploy nginx pods and service endpoint)
-    oc -n federatorai-demo-manager exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; bash -x ./run.sh install"
+    oc -n federatorai-demo-manager exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; export REPO_URL_PREFIX=${REPO_URL_PREFIX}; export VERSION_TAG=${VERSION_TAG}; bash -x ./run.sh install"
     ## wait until pod become Running
     while :; do
         echo "Waiting demo-nginx is ready ..."
@@ -156,7 +160,9 @@ done
 [ "${parameter}" = "" -o "${kubeconfig}" = "" ] && show_usage && exit 1
 
 ## Global variables
-[ "${session_id}" = "" ] && session_id="`date +%s`"
+[ "${session_id}" = "" ] && export session_id="`date +%s`"
+[ "${REPO_URL_PREFIX}" = "" ] && export REPO_URL_PREFIX="quay.io/prophetstor"
+[ "${VERSION_TAG}" = "" ] && export VERSION_TAG="stable"
 manager_pod=""
 
 ## Environment variables

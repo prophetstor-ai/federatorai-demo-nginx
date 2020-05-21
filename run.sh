@@ -604,8 +604,16 @@ install_nginx()
             sed -i "s|namespace:.*|namespace: $nginx_namespace|g" nginx/$file
         done
 
+        ## Patch with specfiy version tag
+        if [ "${REPO_URL_PREFIX}" != "" ];then
+            sed -i -e "s%quay.io/prophetstor%${REPO_URL_PREFIX}%g" nginx/nginx_deployment.yaml
+        fi
+        if [ "${VERSION_TAG}" != "" ];then
+            sed -i -e "s/federatorai-demo-nginx-php:stable/federatorai-demo-nginx-php:${VERSION_TAG}/g" nginx/nginx_deployment.yaml
+        fi
+
         # Install NGINX
-        oc adm policy add-scc-to-user anyuid -z default
+        # oc adm policy add-scc-to-user anyuid -z default
         for file in $file_lists
         do
             oc apply -f nginx/$file
