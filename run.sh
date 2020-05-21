@@ -262,7 +262,7 @@ apply_alamedascaler()
     sed -i "s/  namespace:.*/  namespace: $nginx_namespace/g" $alamedascaler_file
     sed -i "s/  enableExecution:.*/  enableExecution: $execution_enabled/g" $alamedascaler_file
     sed -i "s/    service:.*/    service: $nginx_svc_name/g" $alamedascaler_file
-    sed -i "s/    httpResponseTime:.*/    httpResponseTime: $target_response_time/g" $alamedascaler_file
+    sed -i "s/    targetResponseTime:.*/    targetResponseTime: $target_response_time/g" $alamedascaler_file
     kubectl apply -f $alamedascaler_file
     if [ "$?" != "0" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to apply $alamedascaler_file $(tput sgr 0)"

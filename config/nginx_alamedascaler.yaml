@@ -6,7 +6,7 @@ metadata:
 spec:
   enableExecution: true
   nginx:
-    httpResponseTime: 200
+    targetResponseTime: 200
     exporterNamespace: openshift-ingress
     maxReplicas: 40
     minReplicas: 1
