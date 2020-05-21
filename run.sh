@@ -12,6 +12,7 @@ show_usage()
             [-i Initial nginx replica number] # e.g. -i 10
         Optional options:
             [-c Native HPA cpu percent] # For Native HPA (CPU) test, run with -o option. e.g. -o 40 -c 20
+            [-r Target response time] # Target HTTP response time to be maintained. e.g. -r 250 (default: 200)
             [-z] # Install Nginx.
         Optional Tests: 
             #(Multiple choices supported)
@@ -136,11 +137,6 @@ get_variables_from_define_file()
     fi
     # Number
     #consumer_memory_limit=`grep "consumer_memory_limit" define.py| awk -F '=' '{print $NF}'| egrep -o "[0-9]*"`
-    target_response_time=`grep "target_response_time" define.py| awk '{print $NF}'`
-    if [ "$target_response_time" = "" ]; then
-        echo -e "\n$(tput setaf 1)Error! Failed to parse target_response_time setting from define.py\n$(tput sgr 0)"
-        exit 1
-    fi
 }
 
 check_nginx_env()
@@ -683,7 +679,7 @@ fi
 [ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
 [ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=600  # maximum wait time for pods become ready
 
-while getopts "hi:f:n:o:c:k:" o; do
+while getopts "hi:r:f:n:o:c:k:" o; do
     case "${o}" in
         k)
             kubeconfig="${OPTARG}"
@@ -708,6 +704,9 @@ while getopts "hi:f:n:o:c:k:" o; do
             cpu_percent_specified="y"
             cpu_percent=${OPTARG}
             ;;
+        r)
+            target_response_time_specified="y"
+            target_response_time=${OPTARG}
         h)
             show_usage
             exit 1
@@ -747,6 +746,14 @@ if [ "$federatorai_test" = "y" ] || [ "$nonhpa_test" = "y" ] || [ "$native_cpu_t
     case $initial_nginx_number in
         ''|*[!0-9]*) echo -e "\n$(tput setaf 1)Error! Initial nginx replica number must be a number.$(tput sgr 0)" && show_usage;;
     esac
+fi
+
+if [ "$target_response_time_specified" = "y" ]; then
+    case $target_response_time in
+        ''|*[!0-9]*) echo -e "\n$(tput setaf 1)Error! target response time number must be a number.$(tput sgr 0)" && show_usage;;
+    esac
+else
+    target_response_time="200"
 fi
 
 # Check if kubectl connect to server.
