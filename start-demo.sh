@@ -195,6 +195,7 @@ if [ "${manager_pod}" != "" ]; then
     break
 fi
 
+#oc -n federatorai-demo-manager cp run.sh ${manager_pod}:run.sh # cslee
 ## Update .kubeconfig inside manager
 oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 if [ "$?" != "0" ]; then

@@ -585,6 +585,8 @@ hpa_cleanup()
 
 install_nginx()
 {
+    #nginx_deployment_dir="apps/nginx/deployment"
+    nginx_deployment_dir="apps/nginx-php/deployment"
     kubectl get svc -n $nginx_namespace | grep -iq "nginx-service"
     retValue="$?"
 
@@ -601,22 +603,22 @@ install_nginx()
         # Modify nginx yamls
         for file in $file_lists
         do
-            sed -i "s|namespace:.*|namespace: $nginx_namespace|g" nginx/$file
+            sed -i "s|namespace:.*|namespace: $nginx_namespace|g" ${nginx_deployment_dir}/$file
         done
 
         ## Patch with specfiy version tag
         if [ "${REPO_URL_PREFIX}" != "" ];then
-            sed -i -e "s%quay.io/prophetstor%${REPO_URL_PREFIX}%g" nginx/nginx_deployment.yaml
+            sed -i -e "s%quay.io/prophetstor%${REPO_URL_PREFIX}%g" ${nginx_deployment_dir}/nginx_deployment.yaml
         fi
         if [ "${VERSION_TAG}" != "" ];then
-            sed -i -e "s/federatorai-demo-nginx-php:stable/federatorai-demo-nginx-php:${VERSION_TAG}/g" nginx/nginx_deployment.yaml
+            sed -i -e "s/federatorai-demo-nginx-php:stable/federatorai-demo-nginx-php:${VERSION_TAG}/g" ${nginx_deployment_dir}/nginx_deployment.yaml
         fi
 
         # Install NGINX
         # oc adm policy add-scc-to-user anyuid -z default
         for file in $file_lists
         do
-            oc apply -f nginx/$file
+            oc apply -f ${nginx_deployment_dir}/$file
             if [ "$?" != "0" ]; then
                 echo -e "\n$(tput setaf 1)Error! Failed to apply $file in namespace $nginx_namespace $(tput sgr 0)"
                 exit 1

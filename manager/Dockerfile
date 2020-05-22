@@ -23,7 +23,7 @@ RUN set -x \
     ## install benchmark tools
     && sh -x /src/install.sh \
     && mkdir -pv ${APPHOME} \
-    && mv -v /src/nginx /src/config ${APPHOME} \
+    && mv -v /src/apps /src/config ${APPHOME} \
     && mv -v /src/*.py ${APPHOME} \
     && mv -v /src/transaction.txt ${APPHOME} \
     && mv -v /src/run.sh ${APPHOME} && chmod 755 ${APPHOME}/run.sh \
