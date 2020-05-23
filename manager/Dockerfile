@@ -28,7 +28,7 @@ RUN set -x \
     && mv -v /src/transaction.txt ${APPHOME} \
     && mv -v /src/run.sh ${APPHOME} && chmod 755 ${APPHOME}/run.sh \
     && mv -v /src/cleanup.sh ${APPHOME} && chmod 755 ${APPHOME}/cleanup.sh \
-    && cp -fv /src/docker/init.sh /init.sh && chmod 777 /init.sh \
+    && cp -fv /src/manager/init.sh /init.sh && chmod 777 /init.sh \
     && chmod -R 777 ${APPHOME} \
     ## clean up
     && rm -rf /src \
