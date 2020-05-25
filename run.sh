@@ -642,34 +642,6 @@ do_install()
     return $?
 }
 
-add_nginx_url_host_aliases()
-{
-    _nginx_route=`oc get route -n $nginx_namespace|grep -v NAME|head -1|awk '{print $2}'`
-    if [ "$_nginx_route" = "" ]; then
-        echo -e "\n$(tput setaf 1)Error! Failed to get nginx route.\n$(tput sgr 0)"
-        exit 1
-    fi
-    oc -n federatorai-demo-manager patch deployments nginx-demo-manager --patch \
-    '{
-      "spec": {
-        "template": {
-          "spec": {
-            "hostAliases": [
-              {
-                "hostnames": [
-                  "'${_nginx_route}'"
-                ],
-                "ip": "'${NGINX_PUBLIC_IP}'"
-              }
-            ]
-          }
-        }
-      }
-    }'
-
-
-}
-
 ##
 ## Main
 ##
@@ -681,13 +653,13 @@ if [ "$#" -eq "0" ]; then
     exit 1
 fi
 
+[ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
+[ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=600  # maximum wait time for pods become ready
+
 if [ "$1" = "install" ]; then
     do_install
     exit $?
 fi
-
-[ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
-[ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=600  # maximum wait time for pods become ready
 
 while getopts "hi:r:f:n:o:c:k:" o; do
     case "${o}" in
