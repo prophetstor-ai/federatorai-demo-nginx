@@ -4,7 +4,7 @@ metadata:
   name: nginx-scaler
   namespace: mynginxproj
 spec:
-  enableExecution: true
+  enableExecution: false
   nginx:
     targetResponseTime: 200
     exporterNamespace: openshift-ingress

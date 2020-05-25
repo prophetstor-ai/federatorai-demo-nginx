@@ -254,9 +254,7 @@ restart_recommender_pod()
 
 apply_alamedascaler()
 {
-    execution_enabled="$1"
     sed -i "s/  namespace:.*/  namespace: $nginx_namespace/g" $alamedascaler_file
-    sed -i "s/  enableExecution:.*/  enableExecution: $execution_enabled/g" $alamedascaler_file
     sed -i "s/    service:.*/    service: $nginx_svc_name/g" $alamedascaler_file
     sed -i "s/    targetResponseTime:.*/    targetResponseTime: $target_response_time/g" $alamedascaler_file
     kubectl apply -f $alamedascaler_file
@@ -267,14 +265,33 @@ apply_alamedascaler()
     fi
 }
 
+set_alamedascaler_execution_value()
+{
+    enable_value="$1"
+    $ngin
+    scaler_name=`kubectl get alamedascaler -n $nginx_namespace -o name|cut -d '/' -f2`
+    current_value=`kubectl get alamedascaler $scaler_name -n $nginx_namespace -o jsonpath='{.spec.enableExecution}'`
+    if [ "$enable_value" = "$current_value" ]; then
+        return
+    fi
+
+    kubectl patch alamedascaler $scaler_name -n $nginx_namespace --type merge --patch "{\"spec\":{\"enableExecution\": ${enable_value}}}"
+    if [ "$?" != "0" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to patch alamedascaler \"$scaler_name\".$(tput sgr 0)"
+        leave_prog
+        exit 8
+    fi
+
+}
+
 sleep_interval_func()
 {
-    echo "Sleeping ${avoid_metrics_interference_sleep} seconds to avoid interference..."
     # Always restart recommender before testing
     restart_recommender_pod
 
     # Sleep 10 minutes to avoid metrics interfere
     if [ "$previous_test" = "y" ]; then
+        echo "Sleeping ${avoid_metrics_interference_sleep} seconds to avoid interference..."
         sleep $avoid_metrics_interference_sleep
     fi
 }
@@ -432,7 +449,7 @@ run_federatorai_hpa_test()
     federatorai_test_folder_name="federatorai_hpa_${run_duration}min_${initial_nginx_number}init_${session_id}"
     federatorai_test_folder_short_name="fedai${run_duration}m${initial_nginx_number}i${alameda_version}B"
     mkdir -p $file_folder/$federatorai_test_folder_name
-    apply_alamedascaler "true"
+    set_alamedascaler_execution_value "true"
 
     start=`date +%s`
     echo -e "\n$(tput setaf 2)Running Federator.ai Nginx test...$(tput sgr 0)"
@@ -458,8 +475,11 @@ run_federatorai_hpa_test()
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$federatorai_test_folder_name $(tput sgr 0)"
 
+    # Do clean up
+    hpa_cleanup
+    ./cleanup.sh
     # Turn off execution before next test
-    apply_alamedascaler "false"
+    set_alamedascaler_execution_value "false"
 }
 
 run_native_k8s_hpa_cpu_test()
@@ -476,7 +496,7 @@ run_native_k8s_hpa_cpu_test()
     native_hpa_test_folder_name="native_hpa_cpu${cpu_percent}_${run_duration}min_${initial_nginx_number}init_${session_id}"
     native_hpa_test_folder_short_name="k8shpa${cpu_percent}c${run_duration}m${initial_nginx_number}i${alameda_version}B"
     mkdir -p $file_folder/$native_hpa_test_folder_name
-    apply_alamedascaler "false"
+    set_alamedascaler_execution_value "false"
 
     start=`date +%s`
     echo -e "\n$(tput setaf 2)Running Native HPA (CPU) Nginx test...$(tput sgr 0)"
@@ -501,6 +521,10 @@ run_native_k8s_hpa_cpu_test()
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${native_hpa_cpu_test_avg_time}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_replicas\"$(tput sgr 0)"
     echo -e "Result files are under $file_folder/$native_hpa_test_folder_name $(tput sgr 0)"
+
+    # Do clean up
+    hpa_cleanup
+    ./cleanup.sh
 }
 
 run_nonhpa_hpa_test()
@@ -517,7 +541,7 @@ run_nonhpa_hpa_test()
     nonhpa_test_folder_name="non_hpa_${run_duration}min_${initial_nginx_number}init_${session_id}"
     nonhpa_test_folder_short_name="nonhpa${run_duration}m${initial_nginx_number}i${alameda_version}B"
     mkdir -p $file_folder/$nonhpa_test_folder_name
-    apply_alamedascaler "false"
+    set_alamedascaler_execution_value "false"
 
     start=`date +%s`
     echo -e "\n$(tput setaf 2)Running Non HPA Nginx test...$(tput sgr 0)"
@@ -542,6 +566,10 @@ run_nonhpa_hpa_test()
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${nonhpa_avg_time}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$nonhpa_test_folder_name $(tput sgr 0)"
+
+    # Do clean up
+    hpa_cleanup
+    ./cleanup.sh
 }
 
 display_final_result_if_available()
@@ -789,7 +817,8 @@ install_nginx
 
 check_nginx_env
 modify_env_settings_in_define
-apply_alamedascaler "false"
+apply_alamedascaler
+set_alamedascaler_execution_value "false"
 
 previous_test="n"
 
