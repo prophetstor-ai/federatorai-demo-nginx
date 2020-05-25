@@ -89,7 +89,7 @@ __EOF__
 apply_nginx_deployment()
 {
     ## preparing testing environment (deploy nginx pods and service endpoint)
-    oc -n ${MANAGER_NAMESPACE} exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; export REPO_URL_PREFIX=${REPO_URL_PREFIX}; export VERSION_TAG=${VERSION_TAG}; bash -x ./run.sh install"
+    oc -n ${MANAGER_NAMESPACE} exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; export REPO_URL_PREFIX=${REPO_URL_PREFIX}; export VERSION_TAG=${VERSION_TAG}; bash ./run.sh install"
     ## wait until pod become Running
     while :; do
         echo "Waiting demo-nginx is ready ..."
