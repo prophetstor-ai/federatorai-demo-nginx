@@ -44,14 +44,14 @@ apply_manager_deployment()
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: federatorai-demo-manager
+  name: ${MANAGER_NAMESPACE}
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-demo-manager
-  namespace: federatorai-demo-manager
+  namespace: ${MANAGER_NAMESPACE}
   labels:
     app: nginx-demo-manager
 spec:
@@ -79,7 +79,7 @@ __EOF__
     while :; do
         echo "Waiting demo-manager is ready ..."
         sleep 30
-        [ "`oc -n federatorai-demo-manager get pods | egrep Running | grep nginx-demo-manager-`" != "" ] && break
+        [ "`oc -n ${MANAGER_NAMESPACE} get pods | egrep Running | grep nginx-demo-manager-`" != "" ] && break
     done
 
     return 0
@@ -89,7 +89,7 @@ __EOF__
 apply_nginx_deployment()
 {
     ## preparing testing environment (deploy nginx pods and service endpoint)
-    oc -n federatorai-demo-manager exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; export REPO_URL_PREFIX=${REPO_URL_PREFIX}; export VERSION_TAG=${VERSION_TAG}; bash -x ./run.sh install"
+    oc -n ${MANAGER_NAMESPACE} exec -t ${manager_pod} -- sh -c "export KUBECONFIG=\`pwd\`/.kubeconfig; export REPO_URL_PREFIX=${REPO_URL_PREFIX}; export VERSION_TAG=${VERSION_TAG}; bash -x ./run.sh install"
     ## wait until pod become Running
     while :; do
         echo "Waiting demo-nginx is ready ..."
@@ -106,7 +106,7 @@ add_nginx_url_host_aliases()
     _nginx_route=$1
     _nginx_public_ip=$2
     echo "Adding host aliases ${_nginx_route}:${_nginx_public_ip} into nginx-demo-manager deployment..."
-    oc -n federatorai-demo-manager patch deployments nginx-demo-manager --patch \
+    oc -n ${MANAGER_NAMESPACE} patch deployments nginx-demo-manager --patch \
     '{
       "spec": {
         "template": {
@@ -171,6 +171,7 @@ manager_pod=""
 
 ## Internal variables
 NGINX_NAMESPACE="federatorai-demo-nginx"
+MANAGER_NAMESPACE="federatorai-demo-manager"
 NGINX_DEPLOYMENT_NAME="nginx-deployment"
 export KUBECONFIG=${kubeconfig}
 
@@ -182,22 +183,22 @@ fi
 
 ## create manager deployment if it is not exists
 while :; do
-    oc -n federatorai-demo-manager get deployment nginx-demo-manager > /dev/null 2>&1
+    oc -n ${MANAGER_NAMESPACE} get deployment nginx-demo-manager > /dev/null 2>&1
     [ "$?" = "0" ] && break
     echo "Start deploying manager deployment ..."
     apply_manager_deployment
 done
 
 ## Retrieve manager pod name
-manager_pod="`oc -n federatorai-demo-manager get pods | grep 'Running' | grep nginx-demo-manager | awk '{print $1}'`"
+manager_pod="`oc -n ${MANAGER_NAMESPACE} get pods | grep 'Running' | grep nginx-demo-manager | awk '{print $1}'`"
 if [ "${manager_pod}" != "" ]; then
     export manager_pod
     break
 fi
 
-#oc -n federatorai-demo-manager cp run.sh ${manager_pod}:run.sh # cslee
+oc -n ${MANAGER_NAMESPACE} cp run.sh ${manager_pod}:run.sh # cslee
 ## Update .kubeconfig inside manager
-oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
+oc -n ${MANAGER_NAMESPACE} cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 if [ "$?" != "0" ]; then
     echo "Failed in updating KUBECONFIG file into manager pod."
     exit 1
@@ -213,7 +214,7 @@ done
 
 ## Check if the nginx_route accessible, master may not able to perform dns resolver properly
 nginx_route=`oc get route -n ${NGINX_NAMESPACE} | grep -v NAME | head -1 | awk '{print $2}'`
-msg="`oc -n federatorai-demo-manager exec ${manager_pod} -- curl --retry-max-time 5 -s -v ${nginx_route} 2>&1 | grep 'Could not resolve host'`"
+msg="`oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- curl --retry-max-time 5 -s -v ${nginx_route} 2>&1 | grep 'Could not resolve host'`"
 if [ "${msg}" != "" ]; then
     # example msg "nginx-service-nginx.apps.ocp4.172-31-8-49.nip.io has address 172.31.8.49"
     nginx_public_ip="`host ${nginx_route} | grep 'has address' | awk '{print $NF}'`"
@@ -225,11 +226,10 @@ if [ "${msg}" != "" ]; then
     add_nginx_url_host_aliases ${nginx_route} ${nginx_public_ip}
     ## Wait until new demo-manager pod created
     while :; do
-        manager_pod="`oc -n federatorai-demo-manager get pods | grep 'Running' | grep nginx-demo-manager | awk '{print $1}'`"
+        manager_pod="`oc -n ${MANAGER_NAMESPACE} get pods | grep 'Running' | grep nginx-demo-manager | awk '{print $1}'`"
         if [ "${manager_pod}" != "" ]; then
-            oc -n federatorai-demo-manager get pods -o yaml | grep "nginx-route-federatorai-demo-nginx.apps.ocp4.172-31-8-221.nip.io"
             ## Wait until the new pod contain spec.hostAliases.hostnames: ${nginx_route}
-            if [ "`oc -n federatorai-demo-manager get pod ${manager_pod} -o yaml | grep \"${nginx_route}\"`" != "" ]; then
+            if [ "`oc -n ${MANAGER_NAMESPACE} get pod ${manager_pod} -o yaml | grep \"${nginx_route}\"`" != "" ]; then
                 export manager_pod
                 break
             fi
@@ -240,29 +240,29 @@ if [ "${msg}" != "" ]; then
 fi
 
 ## Start background running run.sh inside demo-manager pod
-oc -n federatorai-demo-manager cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
+oc -n ${MANAGER_NAMESPACE} cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 ## Replace remote's define.py if user specified its file
-[ "${config_define}" != "" ] && oc -n federatorai-demo-manager cp ${config_define} ${manager_pod}:define.py
-#oc -n federatorai-demo-manager exec ${manager_pod} -- tail -f run.log &
+[ "${config_define}" != "" ] && oc -n ${MANAGER_NAMESPACE} cp ${config_define} ${manager_pod}:define.py
+#oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail -f run.log &
 #pid_helper=$!
-oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
+oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
 
 ## Wait until the test in pod finished running
 while :; do
-    msg="`oc -n federatorai-demo-manager exec ${manager_pod} -- tail run.log | egrep 'Success in running all tests|Failed in running all tests'`"
+    msg="`oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail run.log | egrep 'Success in running all tests|Failed in running all tests'`"
     [ "${msg}" != "" ] && break
     echo "Waiting the tests completely running..."
     sleep 60
 done
 
 if [ "`echo \"${msg}\" | grep '^Failed'`" ]; then
-    oc -n federatorai-demo-manager exec ${manager_pod} -- tail -20 run.log
+    oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail -20 run.log
     exit 1
 fi
 echo "Collecting testing result..."
 ## msg example: Success in running all tests with session id 1589278863.
 session_id="`echo ${msg} | tr -d '.' | awk '{print $NF}'`"
-oc -n federatorai-demo-manager exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\` ./test_result/comparison_${session_id}.out" | tar xf -
+oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\` ./test_result/comparison_${session_id}.out" | tar xf -
 
 ##
 echo "Testing result saved into the following directory."
