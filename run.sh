@@ -12,7 +12,7 @@ show_usage()
             [-i Initial nginx replica number] # e.g. -i 10
         Optional options:
             [-c Native HPA cpu percent] # For Native HPA (CPU) test, run with -o option. e.g. -o 40 -c 20
-            [-r Target response time] # Target HTTP response time to be maintained. e.g. -r 250 (default: 200)
+            [-r Target response time (ms)] # Target HTTP response time to be maintained for Federator.ai HPA test. e.g. -r 250 (default: 200)
             [-z] # Install Nginx.
         Optional Tests: 
             #(Multiple choices supported)
