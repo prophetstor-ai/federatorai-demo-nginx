@@ -333,7 +333,7 @@ def main(algo, action, namespace="", app_name=""):
 
         elif action == "init":
             create_directory()
-            clean_data(algo, app_namespace, app_type, resource)
+            #clean_data(algo, app_namespace, app_type, resource)
             update_app_limit(app_namespace, app_type, resource)
 
         else:

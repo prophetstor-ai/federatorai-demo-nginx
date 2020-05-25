@@ -60,7 +60,7 @@ def run_scenario(test_case, app_name, i):
     print "--- Init to run HPA Test(%s): %d ---" % (algo, i)
     print "Preparing initial replicas..."
     init_algo(algo, app_name)
-    wait_time(120)   # give sometime to wait replicas running
+    #wait_time(120)   # give sometime to wait replicas running
 
     # Warm up
     generate_traffic(app_name, "init", warm_up)
