@@ -196,7 +196,6 @@ if [ "${manager_pod}" != "" ]; then
     break
 fi
 
-oc -n ${MANAGER_NAMESPACE} cp run.sh ${manager_pod}:run.sh # cslee
 ## Update .kubeconfig inside manager
 oc -n ${MANAGER_NAMESPACE} cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 if [ "$?" != "0" ]; then
