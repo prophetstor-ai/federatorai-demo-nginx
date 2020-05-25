@@ -244,24 +244,25 @@ oc -n ${MANAGER_NAMESPACE} cp ${KUBECONFIG} ${manager_pod}:.kubeconfig
 [ "${config_define}" != "" ] && oc -n ${MANAGER_NAMESPACE} cp ${config_define} ${manager_pod}:define.py
 #oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail -f run.log &
 #pid_helper=$!
-oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run.log 2>&1 &"
+session_id="`date +%s`"
+oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "export avoid_metrics_interference_sleep=${avoid_metrics_interference_sleep}; export KUBECONFIG=\`pwd\`/.kubeconfig; export session_id=${session_id}; nohup bash ./run.sh -k \${KUBECONFIG} ${parameter} > run_${session_id}.log 2>&1 &"
 
 ## Wait until the test in pod finished running
 while :; do
-    msg="`oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail run.log | egrep 'Success in running all tests|Failed in running all tests'`"
+    msg="`oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail run_${session_id}.log | egrep 'Success in running all tests|Failed in running all tests'`"
     [ "${msg}" != "" ] && break
     echo "Waiting the tests completely running..."
     sleep 60
 done
 
 if [ "`echo \"${msg}\" | grep '^Failed'`" ]; then
-    oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail -20 run.log
+    oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- tail -20 run_${session_id}.log
     exit 1
 fi
 echo "Collecting testing result..."
 ## msg example: Success in running all tests with session id 1589278863.
-session_id="`echo ${msg} | tr -d '.' | awk '{print $NF}'`"
-oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\` ./test_result/comparison_${session_id}.out" | tar xf -
+#session_id="`echo ${msg} | tr -d '.' | awk '{print $NF}'`"
+oc -n ${MANAGER_NAMESPACE} exec ${manager_pod} -- sh -c "tar cf - \`find ./test_result/ -type d | grep ${session_id}$\` ./test_result/comparison_${session_id}.out run_${session_id}.log" | tar xf -
 
 ##
 echo "Testing result saved into the following directory."
