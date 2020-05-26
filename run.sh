@@ -12,6 +12,7 @@ show_usage()
             [-i Initial nginx replica number] # e.g. -i 10
         Optional options:
             [-c Native HPA cpu percent] # For Native HPA (CPU) test, run with -o option. e.g. -o 40 -c 20
+            [-s Workload scale] # Scale of workload generated for the test. e.g. -s 500
             [-r Target response time (ms)] # Target HTTP response time to be maintained for Federator.ai HPA test. e.g. -r 250 (default: 200)
             [-z] # Install Nginx.
         Optional Tests: 
@@ -194,6 +195,7 @@ modify_define_parameter()
     sed -i "s/data_interval.*/data_interval = $run_duration # collect pods' resource utilization # init: 80 minutes/g" define.py
 
     sed -i "s/initial_replica.*/initial_replica = $initial_nginx_number /g" define.py
+    sed -i "s/traffic_ratio.*/traffic_ratio = $workload_scale /g" define.py
 
     if [ "$cpu_percent_specified" = "y" ]; then
         sed -i "s/k8shpa_percent.*/k8shpa_percent = $cpu_percent /g" define.py
@@ -689,7 +691,7 @@ if [ "$1" = "install" ]; then
     exit $?
 fi
 
-while getopts "hi:r:f:n:o:c:k:" o; do
+while getopts "hi:r:f:n:o:c:k:s:" o; do
     case "${o}" in
         k)
             kubeconfig="${OPTARG}"
@@ -717,6 +719,10 @@ while getopts "hi:r:f:n:o:c:k:" o; do
         r)
             target_response_time_specified="y"
             target_response_time=${OPTARG}
+            ;;
+        s)
+            workload_scale_specified="y"
+            workload_scale=${OPTARG}
             ;;
         h)
             show_usage
@@ -765,6 +771,14 @@ if [ "$target_response_time_specified" = "y" ]; then
     esac
 else
     target_response_time="200"
+fi
+
+if [ "$workload_scale_specified" = "y" ]; then
+    case $workload_scale in
+        ''|*[!0-9]*) echo -e "\n$(tput setaf 1)Error! workload scale must be a number.$(tput sgr 0)" && show_usage;;
+    esac
+else
+    workload_scale="500"
 fi
 
 # Check if kubectl connect to server.
