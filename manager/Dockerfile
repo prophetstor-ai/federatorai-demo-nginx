@@ -10,9 +10,9 @@ RUN set -x \
     && yum install -y bind-utils \
     && yum install -y python-pip which httpd-tools python-yaml psmisc python2-devel gcc \
     ## install oc and kubectl
-    && (mkdir -pv /usr/local/bin; cd /usr/local/bin; \
-        curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/oc/4.4/linux/oc.tar.gz | gzip -dc | tar xvf - oc; \
-        chmod 755 oc; ln -sfv oc kubectl)
+    && (mkdir -pv /usr/local/bin && cd /usr/local/bin && \
+        curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/oc/4.4/linux/oc.tar.gz | gzip -dc | tar xvf - oc && \
+        chmod 755 oc && ln -sfv oc kubectl)
 
 COPY . /src
 WORKDIR ${APPHOME}
