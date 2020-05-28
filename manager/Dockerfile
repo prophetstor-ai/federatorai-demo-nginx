@@ -1,7 +1,7 @@
 FROM centos:7.6.1810
 
-ENV HOME ${APPHOME}
 ENV APPHOME /opt/nginxdemo
+ENV HOME ${APPHOME}
 ENV PATH ${APPHOME}:${PATH}
 
 RUN set -x \
@@ -19,7 +19,7 @@ WORKDIR ${APPHOME}
 
 RUN set -x \
     ## Generate version.txt
-    && (cat /src/.git/FETCH_HEAD:aad3ec9efc31db69d81f5a9fac05ab7f3372f05d /src/.git/HEAD > version.txt 2>&1 || true) \
+    ##&& (cat /src/.git/FETCH_HEAD:aad3ec9efc31db69d81f5a9fac05ab7f3372f05d /src/.git/HEAD > version.txt 2>&1 || true) \
     ## install benchmark tools
     && sh -x /src/install.sh \
     && mkdir -pv ${APPHOME} \
