@@ -18,6 +18,19 @@ def clean_data(algo, namespace, resource_type, resource):
     #     output = OC().scale_replica(namespace, resource_type, resource, overprovision_replica)
     return output
 
+def enable_scaler_execution(algo, namespace):
+    output = ""
+    if algo == "alameda":
+        scaler_name = OC().get_alamedascaler_name(namespace)
+        output = OC().enable_alamedascaler_execution(namespace, scaler_name)
+    return output
+
+def disable_scaler_execution(algo, namespace):
+    output = ""
+    if algo == "alameda":
+        scaler_name = OC().get_alamedascaler_name(namespace)
+        output = OC().disable_alamedascaler_execution(namespace, scaler_name)
+    return output
 
 def create_directory():
     dir_list = [traffic_path, metrics_path, picture_path, "output"]
@@ -326,17 +339,18 @@ def main(algo, action, namespace="", app_name=""):
 
     if algo == "alameda":
         if action == "start":
-            pass
+            enable_scaler_execution(algo, app_namespace)
             # dir_name = get_dir_name("alameda")
             # cmd = "python ./run_alameda_hpa.py %s 2>&1 | tee output/%s.out &" % (traffic_interval, dir_name)
             # ret = os.system(cmd)
 
         elif action == "init":
             create_directory()
-            #clean_data(algo, app_namespace, app_type, resource)
+            clean_data(algo, app_namespace, app_type, resource)
             update_app_limit(app_namespace, app_type, resource)
 
         else:
+            disable_scaler_execution(algo, app_namespace)
             dir_name = get_dir_name("alameda")
             change_directory_name(dir_name)
 

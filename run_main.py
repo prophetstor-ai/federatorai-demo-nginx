@@ -62,18 +62,23 @@ def run_scenario(test_case, app_name, i):
     init_algo(algo, app_name)
     #wait_time(120)   # give sometime to wait replicas running
 
-    # Warm up
+    # Warm up phase 1
+    generate_traffic(app_name, "init", 2)
+    wait_time(120)
+    print "======================= warm up phase 1 done ===============================\n\n"
+
+    # Start algorithm
+    start_algo(algo, app_name)
+
+    # Warm up phase 2
     generate_traffic(app_name, "init", warm_up)
     wait_time(warm_up*60)
-    print "======================================================\n\n"
+    print "======================= warm up phase 2 done ===============================\n\n"
 
     # Start workload
     print "\n%s" % time.ctime()
     print "--- Start to Run HPA Test(%s): %d ---" % (algo, i)
     generate_traffic(app_name, "start", traffic_interval)
-
-    # Start algorithm
-    start_algo(algo, app_name)
 
     # Start monitoring
     algo_name = get_dir_name(algo)

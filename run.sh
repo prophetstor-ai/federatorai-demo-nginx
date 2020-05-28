@@ -19,7 +19,7 @@ show_usage()
             #(Multiple choices supported)
             [-f Federator.ai HPA test duration(min)] # e.g. -f 60 
             [-n Non HPA test duration(min)] # e.g. -n 60
-            [-o Native HPA (CPU) test duration(min)] # e.g. -o 40
+            [-o Native HPA(CPU) test duration(min), rounds] # e.g. -o 30,2
 
 __EOF__
     exit 1
@@ -291,7 +291,7 @@ sleep_interval_func()
     # Always restart recommender before testing
     restart_recommender_pod
 
-    # Sleep 10 minutes to avoid metrics interfere
+    # Sleep few seconds to avoid metrics interfere
     if [ "$previous_test" = "y" ]; then
         echo "Sleeping ${avoid_metrics_interference_sleep} seconds to avoid interference..."
         sleep $avoid_metrics_interference_sleep
@@ -302,7 +302,8 @@ nonhpa_test_func()
 {
     if [ "$nonhpa_test" = "y" ]; then
         sleep_interval_func
-        scale_nginx_deployment
+        # Let run_main.py do scaling
+        #scale_nginx_deployment
         previous_test="y"
         start=`date +%s`
         run_nonhpa_hpa_test
@@ -315,14 +316,23 @@ nonhpa_test_func()
 native_hpa_cpu_test_func()
 {
     if [ "$native_cpu_test" = "y" ]; then
-        sleep_interval_func
-        scale_nginx_deployment
-        previous_test="y"
-        start=`date +%s`
-        run_native_k8s_hpa_cpu_test
-        end=`date +%s`
-        duration=$((end-start))
-        echo -e "\n$(tput setaf 6)It takes $(convertsecs $duration) to finish Native HPA (CPU) test.$(tput sgr 0)"
+        test_index=1
+        native_hpa_cpu_test_avg_time_list=()
+        native_hpa_cpu_test_avg_replicas_list=()
+        while [[ $test_index -le $native_cpu_test_repeat ]]
+        do
+            sleep_interval_func
+            # Let run_main.py do scaling
+            #scale_nginx_deployment
+            previous_test="y"
+            start=`date +%s`
+            echo "Starting native K8S HPA test - round ($test_index/$native_cpu_test_repeat)..."
+            run_native_k8s_hpa_cpu_test "$test_index"
+            end=`date +%s`
+            duration=$((end-start))
+            echo -e "\n$(tput setaf 6)It takes $(convertsecs $duration) to finish Native HPA (CPU) test - round $test_index.$(tput sgr 0)"
+            ((test_index = test_index + 1))
+        done
     fi
 }
 
@@ -330,7 +340,8 @@ federatorai_hpa_test_func()
 {
     if [ "$federatorai_test" = "y" ]; then
         sleep_interval_func
-        scale_nginx_deployment
+        # Let run_main.py do scaling
+        #scale_nginx_deployment
         previous_test="y"
         start=`date +%s`
         run_federatorai_hpa_test
@@ -451,7 +462,8 @@ run_federatorai_hpa_test()
     federatorai_test_folder_name="federatorai_hpa_${run_duration}min_${initial_nginx_number}init_${session_id}"
     federatorai_test_folder_short_name="fedai${run_duration}m${initial_nginx_number}i${alameda_version}B"
     mkdir -p $file_folder/$federatorai_test_folder_name
-    set_alamedascaler_execution_value "true"
+    # Will enable execuion inside run_main.py
+    #set_alamedascaler_execution_value "true"
 
     start=`date +%s`
     echo -e "\n$(tput setaf 2)Running Federator.ai Nginx test...$(tput sgr 0)"
@@ -488,6 +500,7 @@ run_native_k8s_hpa_cpu_test()
 {
     # Native HPA (CPU) test
     cd $current_location
+    test_index=$1
 
     # Do clean up
     hpa_cleanup
@@ -495,7 +508,7 @@ run_native_k8s_hpa_cpu_test()
 
     test_type="k8shpa_cpu"
     modify_define_parameter $native_cpu_test_duration
-    native_hpa_test_folder_name="native_hpa_cpu${cpu_percent}_${run_duration}min_${initial_nginx_number}init_${session_id}"
+    native_hpa_test_folder_name="native_hpa_cpu${cpu_percent}_${run_duration}min_${initial_nginx_number}init_round${test_index}_${session_id}"
     native_hpa_test_folder_short_name="k8shpa${cpu_percent}c${run_duration}m${initial_nginx_number}i${alameda_version}B"
     mkdir -p $file_folder/$native_hpa_test_folder_name
     set_alamedascaler_execution_value "false"
@@ -510,13 +523,17 @@ run_native_k8s_hpa_cpu_test()
 
     if [ "$avg_time_per_request" != "" ]; then
         native_hpa_cpu_test_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
+        native_hpa_cpu_test_avg_time_list+=($native_hpa_cpu_test_avg_time)
     else
         native_hpa_cpu_test_avg_time=""
+        echo -e "\n$(tput setaf 1)Warning! Failed to parse native_hpa_cpu_test_avg_time value.$(tput sgr 0)"
     fi
     if [ "$replica_result" != "" ]; then
         native_hpa_cpu_test_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
+        native_hpa_cpu_test_avg_replicas_list+=($native_hpa_cpu_test_avg_replicas)
     else
         native_hpa_cpu_test_avg_replicas=""
+        echo -e "\n$(tput setaf 1)Warning! Failed to parse native_hpa_cpu_test_avg_replicas value.$(tput sgr 0)"
     fi
 
     echo -e "\n$(tput setaf 6)Native HPA (CPU) test is finished.$(tput sgr 0)"
@@ -583,20 +600,47 @@ display_final_result_if_available()
 
         [ "$federatorai_avg_time" = "" ] && federatorai_avg_time="N/A"
         [ "$federatorai_avg_replicas" = "" ] && federatorai_avg_replicas="N/A"
-        [ "$native_hpa_cpu_test_avg_time" = "" ] && native_hpa_cpu_test_avg_time="N/A"
-        [ "$native_hpa_cpu_test_avg_replicas" = "" ] && native_hpa_cpu_test_avg_replicas="N/A"
+
+        avg_time_list_length="${#native_hpa_cpu_test_avg_time_list[@]}"
+        avg_replica_list_length="${#native_hpa_cpu_test_avg_replicas_list[@]}"
+
+        total_avg_time="0"
+        total_avg_replica="0"
+
+        for value in "${native_hpa_cpu_test_avg_time_list[@]}"
+        do
+            total_avg_time=`echo "$total_avg_time $value"| awk '{printf ($1+$2)}'`
+        done
+
+        for value in "${native_hpa_cpu_test_avg_replicas_list[@]}"
+        do
+            total_avg_replica=`echo "$total_avg_replica $value"| awk '{printf ($1+$2)}'`
+        done
+
+        if [ "$avg_time_list_length" != "0" ]; then
+            final_native_avg_time=`echo "$total_avg_time $avg_time_list_length" | awk '{printf "%.2f", ($1/$2)}'`
+        else
+            final_native_avg_time="N/A"
+        fi
+
+        if [ "$avg_replica_list_length" != "0" ]; then
+            final_native_avg_replica=`echo "$total_avg_replica $avg_replica_list_length" | awk '{printf "%.2f", ($1/$2)}'`
+        else
+            final_native_avg_replica="N/A"
+        fi
+
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
         echo -e "                           Benchmark results     " | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
         printf "%30s%20s%20s\n" "Metrics" "Native HPA(CPU)" "Federator.ai" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
-        printf "%30s%20s%20s\n" "Average Time Per Request" "${native_hpa_cpu_test_avg_time}ms" "${federatorai_avg_time}ms" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "Average Time Per Request" "${final_native_avg_time}ms" "${federatorai_avg_time}ms" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
-        printf "%30s%20s%20s\n" "Average Replica(s)" "$native_hpa_cpu_test_avg_replicas" "$federatorai_avg_replicas" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "Average Replica(s)" "$final_native_avg_replica" "$federatorai_avg_replicas" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
 
-        if [ "$native_hpa_cpu_test_avg_time" != "N/A" ] && [ "$federatorai_avg_time" != "N/A" ]; then
-            result=`echo "$native_hpa_cpu_test_avg_time $federatorai_avg_time" | awk '{printf "%.2f", (($1-$2)/$1*100)}'`
+        if [ "$final_native_avg_time" != "N/A" ] && [ "$federatorai_avg_time" != "N/A" ]; then
+            result=`echo "$final_native_avg_time $federatorai_avg_time" | awk '{printf "%.2f", (($1-$2)/$1*100)}'`
             percentage="${result}%"
             echo -e "Performance improvement by Federator.ai vs. Native HPA(CPU) is \"$percentage\"" | tee -a $comparison_file
         fi
@@ -629,7 +673,7 @@ install_nginx()
             oc project $nginx_namespace
         fi
 
-        file_lists="nginx_route.yaml nginx_service.yaml nginx_deployment.yaml"
+        file_lists="nginx_deployment.yaml nginx_route.yaml nginx_service.yaml"
         # Modify nginx yamls
         for file in $file_lists
         do
@@ -684,7 +728,7 @@ if [ "$#" -eq "0" ]; then
 fi
 
 [ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
-[ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=600  # maximum wait time for pods become ready
+[ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=120  # maximum wait time for pods become ready
 
 if [ "$1" = "install" ]; then
     do_install
@@ -710,7 +754,7 @@ while getopts "hi:r:f:n:o:c:k:s:" o; do
             ;;
         o)
             native_cpu_test="y"
-            native_cpu_test_duration=${OPTARG}
+            native_cpu_test_scenario=${OPTARG}
             ;;
         c)
             cpu_percent_specified="y"
@@ -752,6 +796,12 @@ export KUBECONFIG=${kubeconfig}
 if [ "$native_cpu_test" = "y" ]; then
     if [ "$cpu_percent_specified" != "y" ] || [ "$cpu_percent" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Need to use \"-c\" to specify cpu percent for native HPA (CPU) test.$(tput sgr 0)" && show_usage
+    fi
+
+    native_cpu_test_duration=`echo $native_cpu_test_scenario|awk -F',' '{print $1}'|xargs`
+    native_cpu_test_repeat=`echo $native_cpu_test_scenario|awk -F',' '{print $2}'|xargs`
+    if [ "$native_cpu_test_duration" = "" ] || [ "$native_cpu_test_repeat" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Please specify native HPA (CPU) test senario. e.g.: \"-o 30,2\"$(tput sgr 0)" && show_usage
     fi
 fi
 

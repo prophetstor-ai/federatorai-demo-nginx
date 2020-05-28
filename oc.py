@@ -98,6 +98,18 @@ class OC:
         output = self.run_cmd(cmd)
         return output
 
+    def enable_alamedascaler_execution(self, namespace, scaler_name):
+        cmd = '%s patch alamedascaler %s --type merge --patch "{\\"spec\\":{\\"enableExecution\\": true}}" -n %s' % (self.cmd, scaler_name, namespace)
+        print cmd
+        output = self.run_cmd(cmd)
+        return output
+
+    def disable_alamedascaler_execution(self, namespace, scaler_name):
+        cmd = '%s patch alamedascaler %s --type merge --patch "{\\"spec\\":{\\"enableExecution\\": false}}" -n %s' % (self.cmd, scaler_name, namespace)
+        print cmd
+        output = self.run_cmd(cmd)
+        return output
+
     def get_pod_json(self, pod, namespace):
         cmd = "%s get pod %s -n %s -o json" % (self.cmd, pod, namespace)
         output = self.run_cmd(cmd)
@@ -135,6 +147,11 @@ class OC:
 
     def get_deploymentconfigs_all_namespace(self):
         cmd = "%s get deploymentconfigs --all-namespaces 2>/dev/null" % self.cmd
+        output = self.run_cmd(cmd)
+        return output
+
+    def get_alamedascaler_name(self, app_namespace):
+        cmd = "%s get alamedascaler -n %s -o=jsonpath='{.items[0].metadata.name}'" % (self.cmd, app_namespace)
         output = self.run_cmd(cmd)
         return output
 
