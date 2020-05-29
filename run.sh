@@ -402,6 +402,9 @@ collect_results()
     echo "Test end   - $target_end" >> $file_folder/$target_folder/result_statistics
     echo "It takes $(convertsecs $target_duration) to finish test." >> $file_folder/$target_folder/result_statistics
 
+    echo "" >> $file_folder/$target_folder/result_statistics
+    echo "All arguments received: \"$@\"" >> $file_folder/$target_folder/result_statistics
+
     avg_time_per_request=`grep "avg. time per request" $file_folder/$target_folder/result_statistics |awk '{print $NF}'|cut -d ')' -f1`
     if [ "$avg_time_per_request" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to parse average time per request result.\n$(tput sgr 0)"
