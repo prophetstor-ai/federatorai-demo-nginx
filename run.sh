@@ -403,7 +403,7 @@ collect_results()
     echo "It takes $(convertsecs $target_duration) to finish test." >> $file_folder/$target_folder/result_statistics
 
     echo "" >> $file_folder/$target_folder/result_statistics
-    echo "All arguments received: \"$@\"" >> $file_folder/$target_folder/result_statistics
+    echo "All arguments received: \"${argument_received}\"" >> $file_folder/$target_folder/result_statistics
 
     avg_time_per_request=`grep "avg. time per request" $file_folder/$target_folder/result_statistics |awk '{print $NF}'|cut -d ')' -f1`
     if [ "$avg_time_per_request" = "" ]; then
@@ -732,6 +732,8 @@ fi
 
 [ "${max_wait_pods_ready_time}" = "" ] && max_wait_pods_ready_time=900  # maximum wait time for pods become ready
 [ "${avoid_metrics_interference_sleep}" = "" ] && avoid_metrics_interference_sleep=120  # maximum wait time for pods become ready
+
+argument_received="$@"
 
 if [ "$1" = "install" ]; then
     do_install
