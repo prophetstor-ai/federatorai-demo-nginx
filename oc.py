@@ -1,5 +1,5 @@
 import os
-
+from subprocess import PIPE, Popen
 
 class OC:
     cmd = "oc"
@@ -15,7 +15,12 @@ class OC:
         return ret
 
     def run_cmd(self, cmd):
-        output = os.popen(cmd).read()
+        output = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        stdout, stderr = p.communicate()
+        if stderr:
+            print ("run_cmd = %s" % cmd)
+            print ("cmd_err = %s" % stderr)
+
         return output
 
     def run_os_cmd(self, cmd):

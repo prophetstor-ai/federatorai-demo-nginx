@@ -9,6 +9,7 @@ RUN set -x \
     && yum -y install epel-release \
     && yum install -y bind-utils \
     && yum install -y python-pip which httpd-tools python-yaml psmisc python2-devel gcc \
+    && pip install tabulate \
     ## install oc and kubectl
     && (mkdir -pv /usr/local/bin && cd /usr/local/bin && \
         curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/oc/4.4/linux/oc.tar.gz | gzip -dc | tar xvf - oc && \

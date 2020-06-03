@@ -433,6 +433,18 @@ collect_results()
     recommender_pod_name=`kubectl get pods -n $install_namespace -o name |grep "alameda-recommender-"|cut -d '/' -f2`
     ai_pod_name=`kubectl get pods -n $install_namespace -o name |grep "alameda-ai-"|grep -v "alameda-ai-dispatcher"|cut -d '/' -f2`
     kubectl logs $recommender_pod_name -n $install_namespace > $file_folder/$target_folder/recommender/log
+
+    if [ "$federatorai_test" = "y" ]; then
+        kubectl get configmap alameda-recommender-config -n federatorai -o yaml|grep '\[nginx\]' -A9|grep 'evaluation_type'|grep -q 'moving-avg'
+        if [ "$?" = "0" ]; then
+            evaluation_type="moving-avg"
+        else
+            evaluation_type="prediction"
+        fi
+        echo "" >> $file_folder/$target_folder/result_statistics
+        python -u recommlog.py $evaluation_type $file_folder/$target_folder/recommender/log | tee -a $file_folder/$target_folder/result_statistics
+    fi
+
     kubectl exec $ai_pod_name -n $install_namespace -- tar -zcvf - /var/log/alameda/alameda-ai > $file_folder/$target_folder/prediction/log/log.tar.gz
     kubectl exec $ai_pod_name -n $install_namespace -- tar -zcvf - /var/lib/alameda/alameda-ai/models/online/workload_prediction > $file_folder/$target_folder/prediction/model/model.tar.gz
 
