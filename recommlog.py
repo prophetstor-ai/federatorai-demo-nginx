@@ -24,7 +24,8 @@ def main(predict, fn):
                     e1 = l.find("(", s)
                     lastRC = l[s:e1]
 
-                    s = l.find("(max: ", e1) + len("(max: ")
+                    s = l.find("(", e1)
+                    s = l.find(": ", s) + len(": ")
                     e = l.find(")", s)
                     lastMaxRC = l[s:e]
 
@@ -38,7 +39,8 @@ def main(predict, fn):
                     e1 = l.find("(", s)
                     lastRC = l[s:e1]
 
-                    s = l.find("(max: ", e1) + len("(max: ")
+                    s = l.find("(", e1)
+                    s = l.find(": ", s) + len(": ")
                     e = l.find(")", s)
                     lastMaxRC = l[s:e]
 

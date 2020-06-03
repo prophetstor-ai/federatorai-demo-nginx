@@ -15,13 +15,13 @@ class OC:
         return ret
 
     def run_cmd(self, cmd):
-        output = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
         stdout, stderr = p.communicate()
         if stderr:
             print ("run_cmd = %s" % cmd)
             print ("cmd_err = %s" % stderr)
 
-        return output
+        return stdout
 
     def run_os_cmd(self, cmd):
         ret = os.system(cmd)
