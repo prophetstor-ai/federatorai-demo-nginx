@@ -42,7 +42,7 @@ traffic_ratio = 500
 traffic_path = "./traffic"
 traffic_interval = 1  # generate traffic per 1 minute during 72 minutes
 data_interval = 1  # collect pods' resource utilization
-warm_up = 10
+warm_up = 0
 
 training_interval = 100
 training_scale = 100

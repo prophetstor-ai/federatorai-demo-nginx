@@ -387,6 +387,7 @@ collect_results()
     target_folder_short_name="$2"
     target_start="$3"
     target_end="$4"
+    type="$5"
 
     target_duration=$((target_end-target_start))
 
@@ -434,7 +435,7 @@ collect_results()
     ai_pod_name=`kubectl get pods -n $install_namespace -o name |grep "alameda-ai-"|grep -v "alameda-ai-dispatcher"|cut -d '/' -f2`
     kubectl logs $recommender_pod_name -n $install_namespace > $file_folder/$target_folder/recommender/log
 
-    if [ "$federatorai_test" = "y" ]; then
+    if [ "$type" = "FED" ]; then
         kubectl get configmap alameda-recommender-config -n federatorai -o yaml|grep '\[nginx\]' -A9|grep 'evaluation_type'|grep -q 'moving-avg'
         if [ "$?" = "0" ]; then
             evaluation_type="moving-avg"
@@ -486,7 +487,7 @@ run_federatorai_hpa_test()
     end=`date +%s`
 
     echo "Collecting statistics..."
-    collect_results "$federatorai_test_folder_name" "$federatorai_test_folder_short_name" "$start" "$end"
+    collect_results "$federatorai_test_folder_name" "$federatorai_test_folder_short_name" "$start" "$end" "FED"
 
     if [ "$avg_time_per_request" != "" ]; then
         federatorai_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
@@ -534,7 +535,7 @@ run_native_k8s_hpa_cpu_test()
     end=`date +%s`
 
     echo "Collecting statistics..."
-    collect_results "$native_hpa_test_folder_name" "$native_hpa_test_folder_short_name" "$start" "$end"
+    collect_results "$native_hpa_test_folder_name" "$native_hpa_test_folder_short_name" "$start" "$end" "NativeCPU"
 
     if [ "$avg_time_per_request" != "" ]; then
         native_hpa_cpu_test_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
@@ -583,7 +584,7 @@ run_nonhpa_hpa_test()
     end=`date +%s`
 
     echo "Collecting statistics..."
-    collect_results "$nonhpa_test_folder_name" "$nonhpa_test_folder_short_name" "$start" "$end"
+    collect_results "$nonhpa_test_folder_name" "$nonhpa_test_folder_short_name" "$start" "$end" "NonHPA"
 
     if [ "$avg_time_per_request" != "" ]; then
         nonhpa_avg_time=`echo $avg_time_per_request|awk '{printf "%.2f",$0}'`
