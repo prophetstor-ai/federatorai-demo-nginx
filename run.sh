@@ -318,6 +318,7 @@ native_hpa_cpu_test_func()
     if [ "$native_cpu_test" = "y" ]; then
         test_index=1
         native_hpa_cpu_test_avg_time_list=()
+        native_hpa_cpu_test_nintieth_latency_list=()
         native_hpa_cpu_test_avg_replicas_list=()
         while [[ $test_index -le $native_cpu_test_repeat ]]
         do
@@ -411,6 +412,13 @@ collect_results()
         echo -e "\n$(tput setaf 1)Error! Failed to parse average time per request result.\n$(tput sgr 0)"
         # continue test without exit
     fi
+
+    nintieth_percentile_latency=`grep "90th tail latency" $file_folder/$target_folder/result_statistics |awk '{print $NF}'|cut -d ')' -f1`
+    if [ "$nintieth_percentile_latency" = "" ]; then
+        echo -e "\n$(tput setaf 1)Error! Failed to parse 90th percentile latency.\n$(tput sgr 0)"
+        # continue test without exit
+    fi
+
     replica_result=`grep "avg replica" $file_folder/$target_folder/result_statistics |awk '{print $NF}'`
     if [ "$replica_result" = "" ]; then
         echo -e "\n$(tput setaf 1)Error! Failed to parse average replica(s) result.\n$(tput sgr 0)"
@@ -436,7 +444,7 @@ collect_results()
     kubectl logs $recommender_pod_name -n $install_namespace > $file_folder/$target_folder/recommender/log
 
     if [ "$type" = "FED" ]; then
-        kubectl get configmap alameda-recommender-config -n federatorai -o yaml|grep '\[nginx\]' -A9|grep 'evaluation_type'|grep -q 'moving-avg'
+        kubectl get configmap alameda-recommender-config -n federatorai -o yaml|grep '\[nginx\]' -A20|grep 'evaluation_type'|grep -q 'moving-avg'
         if [ "$?" = "0" ]; then
             evaluation_type="moving-avg"
         else
@@ -494,6 +502,13 @@ run_federatorai_hpa_test()
     else
         federatorai_avg_time=""
     fi
+
+    if [ "$nintieth_percentile_latency" != "" ]; then
+        federatorai_latency=`echo $nintieth_percentile_latency|awk '{printf "%.2f",$0}'`
+    else
+        federatorai_latency=""
+    fi
+
     if [ "$replica_result" != "" ]; then
         federatorai_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
     else
@@ -502,6 +517,7 @@ run_federatorai_hpa_test()
 
     echo -e "\n$(tput setaf 6)Federator.ai test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${federatorai_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)90th Percentile Latency is $(tput sgr 0)$(tput setaf 10)\"${federatorai_latency}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$federatorai_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$federatorai_test_folder_name $(tput sgr 0)"
 
@@ -544,6 +560,15 @@ run_native_k8s_hpa_cpu_test()
         native_hpa_cpu_test_avg_time=""
         echo -e "\n$(tput setaf 1)Warning! Failed to parse native_hpa_cpu_test_avg_time value.$(tput sgr 0)"
     fi
+
+    if [ "$nintieth_percentile_latency" != "" ]; then
+        native_hpa_cpu_test_latency=`echo $nintieth_percentile_latency|awk '{printf "%.2f",$0}'`
+        native_hpa_cpu_test_nintieth_latency_list+=($native_hpa_cpu_test_latency)
+    else
+        native_hpa_cpu_test_latency=""
+        echo -e "\n$(tput setaf 1)Warning! Failed to parse native_hpa_cpu_test_latency value.$(tput sgr 0)"
+    fi
+
     if [ "$replica_result" != "" ]; then
         native_hpa_cpu_test_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
         native_hpa_cpu_test_avg_replicas_list+=($native_hpa_cpu_test_avg_replicas)
@@ -554,8 +579,9 @@ run_native_k8s_hpa_cpu_test()
 
     echo -e "\n$(tput setaf 6)Native HPA (CPU) test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${native_hpa_cpu_test_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)90th Percentile Latency is $(tput sgr 0)$(tput setaf 10)\"${native_hpa_cpu_test_latency}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$native_hpa_cpu_test_avg_replicas\"$(tput sgr 0)"
-    echo -e "Result files are under $file_folder/$native_hpa_test_folder_name $(tput sgr 0)"
+    echo -e "$(tput setaf 6)Result files are under $file_folder/$native_hpa_test_folder_name $(tput sgr 0)"
 
     # Do clean up
     hpa_cleanup
@@ -591,6 +617,11 @@ run_nonhpa_hpa_test()
     else
         nonhpa_avg_time=""
     fi
+    if [ "$nintieth_percentile_latency" != "" ]; then
+        nonhpa_latency=`echo $nintieth_percentile_latency|awk '{printf "%.2f",$0}'`
+    else
+        nonhpa_latency=""
+    fi
     if [ "$replica_result" != "" ]; then
         nonhpa_avg_replicas=`echo $replica_result|awk '{printf "%.2f",$0}'`
     else
@@ -599,6 +630,7 @@ run_nonhpa_hpa_test()
 
     echo -e "\n$(tput setaf 6)NonHPA test is finished.$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average time per request is $(tput sgr 0)$(tput setaf 10)\"${nonhpa_avg_time}ms\"$(tput sgr 0)"
+    echo -e "$(tput setaf 6)90th Percentile Latency is $(tput sgr 0)$(tput setaf 10)\"${nonhpa_latency}ms\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Average Replica is $(tput sgr 0)$(tput setaf 10)\"$nonhpa_avg_replicas\"$(tput sgr 0)"
     echo -e "$(tput setaf 6)Result files are under $file_folder/$nonhpa_test_folder_name $(tput sgr 0)"
 
@@ -615,17 +647,25 @@ display_final_result_if_available()
         echo ""
 
         [ "$federatorai_avg_time" = "" ] && federatorai_avg_time="N/A"
+        [ "$federatorai_latency" = "" ] && federatorai_latency="N/A"
         [ "$federatorai_avg_replicas" = "" ] && federatorai_avg_replicas="N/A"
 
         avg_time_list_length="${#native_hpa_cpu_test_avg_time_list[@]}"
+        latency_list_length="${#native_hpa_cpu_test_nintieth_latency_list[@]}"
         avg_replica_list_length="${#native_hpa_cpu_test_avg_replicas_list[@]}"
 
         total_avg_time="0"
+        total_latency="0"
         total_avg_replica="0"
 
         for value in "${native_hpa_cpu_test_avg_time_list[@]}"
         do
             total_avg_time=`echo "$total_avg_time $value"| awk '{printf ($1+$2)}'`
+        done
+
+        for value in "${native_hpa_cpu_test_nintieth_latency_list[@]}"
+        do
+            total_latency=`echo "$total_latency $value"| awk '{printf ($1+$2)}'`
         done
 
         for value in "${native_hpa_cpu_test_avg_replicas_list[@]}"
@@ -637,6 +677,12 @@ display_final_result_if_available()
             final_native_avg_time=`echo "$total_avg_time $avg_time_list_length" | awk '{printf "%.2f", ($1/$2)}'`
         else
             final_native_avg_time="N/A"
+        fi
+
+        if [ "$latency_list_length" != "0" ]; then
+            final_native_latency=`echo "$total_latency $latency_list_length" | awk '{printf "%.2f", ($1/$2)}'`
+        else
+            final_native_latency="N/A"
         fi
 
         if [ "$avg_replica_list_length" != "0" ]; then
@@ -651,6 +697,8 @@ display_final_result_if_available()
         printf "%30s%20s%20s\n" "Metrics" "Native HPA(CPU)" "Federator.ai" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
         printf "%30s%20s%20s\n" "Average Time Per Request" "${final_native_avg_time}ms" "${federatorai_avg_time}ms" | tee -a $comparison_file
+        echo "----------------------------------------------------------------------" | tee -a $comparison_file
+        printf "%30s%20s%20s\n" "90th Percentile Latency" "${final_native_latency}ms" "${federatorai_latency}ms" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
         printf "%30s%20s%20s\n" "Average Replica(s)" "$final_native_avg_replica" "$federatorai_avg_replicas" | tee -a $comparison_file
         echo "----------------------------------------------------------------------" | tee -a $comparison_file
